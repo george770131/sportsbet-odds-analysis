@@ -3,16 +3,20 @@
 """
 
 SCHEMA_SQL = """
--- 1. 即時 / 即將進行賽事表
+-- 1. 即時 / 即將進行 / 進行中 / 已完賽賽事表
 CREATE TABLE IF NOT EXISTS matches (
     id TEXT PRIMARY KEY,               -- 賽事唯一 ID (如 sb_mlb_20260826_01)
     sport TEXT NOT NULL,               -- baseball / esports
     league TEXT NOT NULL,              -- MLB, NPB, CPBL, LCK, LPL
     home_team TEXT NOT NULL,           -- 主隊 / 藍方隊伍
     away_team TEXT NOT NULL,           -- 客隊 / 紅方隊伍
-    start_time TEXT NOT NULL,          -- 比賽預定開始時間 (ISO-8601)
-    status TEXT DEFAULT 'UPCOMING',    -- UPCOMING, LIVE, FINISHED
+    start_time TEXT NOT NULL,          -- 比賽預定開始時間 (台灣時間)
+    status TEXT DEFAULT 'UPCOMING',    -- UPCOMING (未開賽), LIVE (進行中/場中), FINISHED (已完賽)
     favorite_team TEXT,                -- 盤口低賠熱門球隊
+    live_score_home INTEGER DEFAULT 0, -- 主隊即時得分
+    live_score_away INTEGER DEFAULT 0, -- 客隊即時得分
+    live_period TEXT DEFAULT '',       -- 進行局數/局次 (例: 3局上, Game 2)
+    final_score TEXT DEFAULT '',       -- 終場比分 (例: 4 - 2)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

@@ -33,6 +33,19 @@ class DatabaseManager:
                     conn.execute(f"ALTER TABLE {table} ADD COLUMN home_handicap_line REAL DEFAULT -1.5")
                 if "away_handicap_line" not in cols:
                     conn.execute(f"ALTER TABLE {table} ADD COLUMN away_handicap_line REAL DEFAULT 1.5")
+
+            # matches 欄位熱遷移 (場中比分與賽況)
+            cur_m = conn.execute("PRAGMA table_info(matches)")
+            m_cols = [row["name"] for row in cur_m.fetchall()]
+            if "live_score_home" not in m_cols:
+                conn.execute("ALTER TABLE matches ADD COLUMN live_score_home INTEGER DEFAULT 0")
+            if "live_score_away" not in m_cols:
+                conn.execute("ALTER TABLE matches ADD COLUMN live_score_away INTEGER DEFAULT 0")
+            if "live_period" not in m_cols:
+                conn.execute("ALTER TABLE matches ADD COLUMN live_period TEXT DEFAULT ''")
+            if "final_score" not in m_cols:
+                conn.execute("ALTER TABLE matches ADD COLUMN final_score TEXT DEFAULT ''")
+
             conn.commit()
 
     # ==========================
@@ -42,12 +55,31 @@ class DatabaseManager:
         """新增或更新即時賽事 (以台灣時間儲存)"""
         m = dict(match)
         m["updated_at"] = config.get_taiwan_now_str()
+        if "live_score_home" not in m:
+            m["live_score_home"] = 0
+        if "live_score_away" not in m:
+            m["live_score_away"] = 0
+        if "live_period" not in m:
+            m["live_period"] = ""
+        if "final_score" not in m:
+            m["final_score"] = ""
+
         query = """
-        INSERT INTO matches (id, sport, league, home_team, away_team, start_time, status, favorite_team, updated_at)
-        VALUES (:id, :sport, :league, :home_team, :away_team, :start_time, :status, :favorite_team, :updated_at)
+        INSERT INTO matches (
+            id, sport, league, home_team, away_team, start_time, status, favorite_team,
+            live_score_home, live_score_away, live_period, final_score, updated_at
+        )
+        VALUES (
+            :id, :sport, :league, :home_team, :away_team, :start_time, :status, :favorite_team,
+            :live_score_home, :live_score_away, :live_period, :final_score, :updated_at
+        )
         ON CONFLICT(id) DO UPDATE SET
             status=excluded.status,
             favorite_team=excluded.favorite_team,
+            live_score_home=excluded.live_score_home,
+            live_score_away=excluded.live_score_away,
+            live_period=excluded.live_period,
+            final_score=excluded.final_score,
             updated_at=:updated_at;
         """
         with self.get_connection() as conn:
@@ -120,6 +152,10 @@ class DatabaseManager:
             m.start_time,
             m.status,
             m.favorite_team,
+            COALESCE(m.live_score_home, 0) AS live_score_home,
+            COALESCE(m.live_score_away, 0) AS live_score_away,
+            COALESCE(m.live_period, '') AS live_period,
+            COALESCE(m.final_score, '') AS final_score,
             sb.home_odds AS sb_home_odds,
             sb.away_odds AS sb_away_odds,
             sb.handicap_line AS sb_handicap_line,
