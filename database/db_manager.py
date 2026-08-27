@@ -39,22 +39,24 @@ class DatabaseManager:
     # 即時賽事與盤口操作
     # ==========================
     def save_match(self, match: Dict[str, Any]):
-        """新增或更新即時賽事"""
+        """新增或更新即時賽事 (以台灣時間儲存)"""
+        m = dict(match)
+        m["updated_at"] = config.get_taiwan_now_str()
         query = """
         INSERT INTO matches (id, sport, league, home_team, away_team, start_time, status, favorite_team, updated_at)
-        VALUES (:id, :sport, :league, :home_team, :away_team, :start_time, :status, :favorite_team, CURRENT_TIMESTAMP)
+        VALUES (:id, :sport, :league, :home_team, :away_team, :start_time, :status, :favorite_team, :updated_at)
         ON CONFLICT(id) DO UPDATE SET
             status=excluded.status,
             favorite_team=excluded.favorite_team,
-            updated_at=CURRENT_TIMESTAMP;
+            updated_at=:updated_at;
         """
         with self.get_connection() as conn:
-            conn.execute(query, match)
+            conn.execute(query, m)
             conn.commit()
 
     def save_live_odds(self, odds_data: Dict[str, Any]):
-        """儲存即時賠率並記錄至走勢歷史"""
-        # 確保 home_handicap_line 與 away_handicap_line 存在預設值
+        """儲存即時賠率並記錄至走勢歷史 (以台灣時間儲存)"""
+        now_tw = config.get_taiwan_now_str()
         data = dict(odds_data)
         if "home_handicap_line" not in data:
             data["home_handicap_line"] = data.get("handicap_line", -1.5)
@@ -62,6 +64,8 @@ class DatabaseManager:
             data["away_handicap_line"] = -data["home_handicap_line"]
         if "handicap_line" not in data:
             data["handicap_line"] = data["home_handicap_line"]
+        data["updated_at"] = now_tw
+        data["timestamp"] = now_tw
 
         upsert_query = """
         INSERT INTO live_odds (
@@ -73,7 +77,7 @@ class DatabaseManager:
             :match_id, :bookmaker, :market_type, :home_odds, :away_odds,
             :handicap_line, :home_handicap_line, :away_handicap_line,
             :handicap_home_odds, :handicap_away_odds,
-            :total_line, :over_odds, :under_odds, CURRENT_TIMESTAMP
+            :total_line, :over_odds, :under_odds, :updated_at
         ) ON CONFLICT(match_id, bookmaker, market_type) DO UPDATE SET
             home_odds=excluded.home_odds,
             away_odds=excluded.away_odds,
@@ -85,7 +89,7 @@ class DatabaseManager:
             total_line=excluded.total_line,
             over_odds=excluded.over_odds,
             under_odds=excluded.under_odds,
-            updated_at=CURRENT_TIMESTAMP;
+            updated_at=:updated_at;
         """
         history_query = """
         INSERT INTO odds_history (
@@ -96,7 +100,7 @@ class DatabaseManager:
             :match_id, :bookmaker, :market_type, :home_odds, :away_odds,
             :handicap_line, :home_handicap_line, :away_handicap_line,
             :handicap_home_odds, :handicap_away_odds,
-            CURRENT_TIMESTAMP
+            :timestamp
         );
         """
         with self.get_connection() as conn:

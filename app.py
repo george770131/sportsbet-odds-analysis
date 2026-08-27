@@ -235,7 +235,7 @@ with st.sidebar:
             time.sleep(0.5)
             st.rerun()
 
-    st.caption(f"🕒 前次同步時間：`{sync_service.last_sync_time}`")
+    st.caption(f"🕒 前次同步時間 (台灣時間)：`{sync_service.last_sync_time}`")
     
     st.divider()
     db_summary = db.get_db_summary()
@@ -254,6 +254,8 @@ steam_alerts = movement_analyzer.detect_steam_moves(threshold_pct=2.5)
 arb_opps = arbitrage_scanner.scan_arbitrage_opportunities()
 ev_bets = ev_calculator.scan_positive_ev(min_ev_pct=0.0)
 
+tw_current_time = config.get_taiwan_now_str('%Y-%m-%d %H:%M:%S')
+
 st.markdown(f"""
 <div class="pro-header">
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
@@ -265,10 +267,10 @@ st.markdown(f"""
                 涵蓋 Sportsbet 澳洲實時盤口水位、Oddsportal 歷史共識回測、低賠讓分最佳投資區間與 +EV 模型
             </div>
         </div>
-        <div style="display: flex; gap: 8px; margin-top: 6px;">
+        <div style="display: flex; gap: 8px; margin-top: 6px; align-items: center;">
             <span class="status-badge-green">● 實時連線中</span>
-            <span class="status-badge-blue">棒球 (MLB/NPB/CPBL)</span>
-            <span class="status-badge-amber">電競 (LCK/LPL)</span>
+            <span class="status-badge-blue">🕒 台灣時間: {tw_current_time}</span>
+            <span class="status-badge-amber">棒球/電競 5大聯盟</span>
         </div>
     </div>
 </div>
@@ -400,7 +402,7 @@ with tab_sb:
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                         <div>
                             <span class="status-badge-blue">[{row['league']}]</span>
-                            <span style="font-size: 12px; color: #9CA3AF; margin-left: 6px;">🕒 開賽時間：{row['start_time']}</span>
+                            <span style="font-size: 12px; color: #9CA3AF; margin-left: 6px;">🕒 開賽時間 (台灣時間)：{row['start_time']}</span>
                         </div>
                         <div style="font-size: 11px; color: #6B7280;">Sportsbet 實時行情</div>
                     </div>
@@ -588,13 +590,13 @@ with tab_live:
             grid_data.append({
                 "match_id": row["match_id"],
                 "聯盟": row["league"],
-                "開賽時間": row["start_time"],
+                "開賽時間 (台灣時間)": row["start_time"],
                 "對戰組合": f"{row['home_team']} (主) vs {row['away_team']} (客)",
                 "Sportsbet 獨贏": f"主: {row['sb_home_odds']} | 客: {row['sb_away_odds']}",
                 "讓分盤口 (Spread)": f"{row['home_team'].split()[0]} ({h_line:+.1f}): {row['sb_h_spread_odds']} | {row['away_team'].split()[0]} ({a_line:+.1f}): {row['sb_a_spread_odds']}",
                 "市場共識獨贏": f"主: {row['op_home_odds']} | 客: {row['op_away_odds']}",
                 "大小分 (Totals)": f"{row['sb_total_line']} (大: {row['sb_over_odds']} / 小: {row['sb_under_odds']})",
-                "更新時間": row["odds_updated_at"]
+                "更新時間 (台灣時間)": row["odds_updated_at"]
             })
         st.dataframe(pd.DataFrame(grid_data), use_container_width=True, hide_index=True)
         
@@ -617,7 +619,7 @@ with tab_live:
                 paper_bgcolor="#111827",
                 plot_bgcolor="#0B0F19",
                 font=dict(color="#F3F4F6", family="Inter"),
-                xaxis_title="時間",
+                xaxis_title="時間 (台灣時間 UTC+8)",
                 yaxis_title="賠率 (Decimal)",
                 height=400,
                 yaxis=dict(gridcolor="#1F2937"),

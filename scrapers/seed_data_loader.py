@@ -267,7 +267,8 @@ def generate_live_upcoming_matches() -> List[Dict[str, Any]]:
         {"sport": "esports", "league": "LPL", "home": "LNG Esports (LNG)", "away": "FunPlus Phoenix (FPX)", "hours": 10, "fav_is_home": True, "base_fav_ml": 1.36, "base_fav_sp": 2.02},
     ]
     
-    now = datetime.now()
+    import config
+    now = config.get_taiwan_now()
     for idx, fix in enumerate(fixtures):
         m_id = f"live_{fix['league'].lower()}_{idx+1:02d}"
         start_time = (now + timedelta(hours=fix["hours"])).strftime("%Y-%m-%d %H:%M")

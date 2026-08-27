@@ -16,7 +16,7 @@ Write-Host "===================================================" -ForegroundColo
 & $git remote add origin https://github.com/george770131/sportsbet-odds-analysis.git
 
 & $git add .
-& $git commit -m "Fix handicap lines and dynamic team spread rendering"
+& $git commit -m "Fix handicap lines and align all timestamps to Taiwan Time (UTC+8)"
 & $git branch -M main
 
 Write-Host "Pushing to GitHub..." -ForegroundColor Green

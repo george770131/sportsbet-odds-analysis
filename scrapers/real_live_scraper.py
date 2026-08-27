@@ -137,48 +137,48 @@ def calc_spread_lines_and_odds(h_ml: float, a_ml: float, sport: str = "baseball"
         
     return h_line, h_sp, a_line, a_sp
 
-# 預設基準真實盤口 (當網頁抓取為離線時提供精確真值備援)
+# 預設基準真實盤口 (全部以台灣時間 UTC+8 標註)
 FALLBACK_REAL_ODDS = {
     "MLB": [
-        {"home": "New York Yankees", "away": "Houston Astros", "h_ml": 1.72, "a_ml": 2.15, "h_line": -1.5, "h_sp": 2.25, "a_line": 1.5, "a_sp": 1.65, "time": "2026-08-27 01:05"},
-        {"home": "Toronto Blue Jays", "away": "Kansas City Royals", "h_ml": 1.70, "a_ml": 2.18, "h_line": -1.5, "h_sp": 2.20, "a_line": 1.5, "a_sp": 1.68, "time": "2026-08-27 01:07"},
-        {"home": "New York Mets", "away": "Milwaukee Brewers", "h_ml": 2.30, "a_ml": 1.63, "h_line": 1.5, "h_sp": 1.65, "a_line": -1.5, "a_sp": 2.25, "time": "2026-08-27 01:10"},
-        {"home": "Atlanta Braves", "away": "Los Angeles Dodgers", "h_ml": 2.12, "a_ml": 1.73, "h_line": 1.5, "h_sp": 1.70, "a_line": -1.5, "a_sp": 2.18, "time": "2026-08-27 01:15"},
-        {"home": "Chicago White Sox", "away": "Texas Rangers", "h_ml": 1.76, "a_ml": 2.08, "h_line": -1.5, "h_sp": 2.28, "a_line": 1.5, "a_sp": 1.62, "time": "2026-08-27 01:40"},
-        {"home": "St.Louis Cardinals", "away": "Baltimore Orioles", "h_ml": 1.90, "a_ml": 1.90, "h_line": -1.5, "h_sp": 2.45, "a_line": 1.5, "a_sp": 1.55, "time": "2026-08-27 01:45"},
-        {"home": "Athletics", "away": "Minnesota Twins", "h_ml": 2.15, "a_ml": 1.71, "h_line": 1.5, "h_sp": 1.70, "a_line": -1.5, "a_sp": 2.18, "time": "2026-08-27 03:05"},
-        {"home": "Detroit Tigers", "away": "Tampa Bay Rays", "h_ml": 1.80, "a_ml": 2.02, "h_line": -1.5, "h_sp": 2.35, "a_line": 1.5, "a_sp": 1.60, "time": "2026-08-26 19:10"},
-        {"home": "Arizona Diamondbacks", "away": "Chicago Cubs", "h_ml": 1.91, "a_ml": 1.91, "h_line": -1.5, "h_sp": 2.40, "a_line": 1.5, "a_sp": 1.58, "time": "2026-08-26 21:40"},
-        {"home": "San Francisco Giants", "away": "Cincinnati Reds", "h_ml": 1.86, "a_ml": 1.96, "h_line": -1.5, "h_sp": 2.38, "a_line": 1.5, "a_sp": 1.60, "time": "2026-08-26 21:45"},
-        {"home": "Los Angeles Angels", "away": "Cleveland Guardians", "h_ml": 2.15, "a_ml": 1.71, "h_line": 1.5, "h_sp": 1.68, "a_line": -1.5, "a_sp": 2.20, "time": "2026-08-26 22:07"},
-        {"home": "Seattle Mariners", "away": "Philadelphia Phillies", "h_ml": 2.10, "a_ml": 1.75, "h_line": 1.5, "h_sp": 1.70, "a_line": -1.5, "a_sp": 2.18, "time": "2026-08-26 22:10"},
-        {"home": "San Diego Padres", "away": "Pittsburgh Pirates", "h_ml": 1.73, "a_ml": 2.12, "h_line": -1.5, "h_sp": 2.24, "a_line": 1.5, "a_sp": 1.66, "time": "2026-08-26 22:10"},
-        {"home": "Miami Marlins", "away": "Boston Red Sox", "h_ml": 2.18, "a_ml": 1.70, "h_line": 1.5, "h_sp": 1.68, "a_line": -1.5, "a_sp": 2.20, "time": "2026-08-27 00:40"},
-        {"home": "Washington Nationals", "away": "Colorado Rockies", "h_ml": 1.77, "a_ml": 2.06, "h_line": -1.5, "h_sp": 2.30, "a_line": 1.5, "a_sp": 1.64, "time": "2026-08-27 00:45"}
+        {"home": "New York Yankees", "away": "Houston Astros", "h_ml": 1.72, "a_ml": 2.15, "h_line": -1.5, "h_sp": 2.25, "a_line": 1.5, "a_sp": 1.65, "time": "2026-08-27 07:05"},
+        {"home": "Toronto Blue Jays", "away": "Kansas City Royals", "h_ml": 1.70, "a_ml": 2.18, "h_line": -1.5, "h_sp": 2.20, "a_line": 1.5, "a_sp": 1.68, "time": "2026-08-27 07:07"},
+        {"home": "New York Mets", "away": "Milwaukee Brewers", "h_ml": 2.30, "a_ml": 1.63, "h_line": 1.5, "h_sp": 1.65, "a_line": -1.5, "a_sp": 2.25, "time": "2026-08-27 07:10"},
+        {"home": "Atlanta Braves", "away": "Los Angeles Dodgers", "h_ml": 2.12, "a_ml": 1.73, "h_line": 1.5, "h_sp": 1.70, "a_line": -1.5, "a_sp": 2.18, "time": "2026-08-27 07:15"},
+        {"home": "Chicago White Sox", "away": "Texas Rangers", "h_ml": 1.76, "a_ml": 2.08, "h_line": -1.5, "h_sp": 2.28, "a_line": 1.5, "a_sp": 1.62, "time": "2026-08-27 07:40"},
+        {"home": "St.Louis Cardinals", "away": "Baltimore Orioles", "h_ml": 1.90, "a_ml": 1.90, "h_line": -1.5, "h_sp": 2.45, "a_line": 1.5, "a_sp": 1.55, "time": "2026-08-27 07:45"},
+        {"home": "Athletics", "away": "Minnesota Twins", "h_ml": 2.15, "a_ml": 1.71, "h_line": 1.5, "h_sp": 1.70, "a_line": -1.5, "a_sp": 2.18, "time": "2026-08-27 09:05"},
+        {"home": "Detroit Tigers", "away": "Tampa Bay Rays", "h_ml": 1.80, "a_ml": 2.02, "h_line": -1.5, "h_sp": 2.35, "a_line": 1.5, "a_sp": 1.60, "time": "2026-08-27 09:10"},
+        {"home": "Arizona Diamondbacks", "away": "Chicago Cubs", "h_ml": 1.91, "a_ml": 1.91, "h_line": -1.5, "h_sp": 2.40, "a_line": 1.5, "a_sp": 1.58, "time": "2026-08-27 09:40"},
+        {"home": "San Francisco Giants", "away": "Cincinnati Reds", "h_ml": 1.86, "a_ml": 1.96, "h_line": -1.5, "h_sp": 2.38, "a_line": 1.5, "a_sp": 1.60, "time": "2026-08-27 09:45"},
+        {"home": "Los Angeles Angels", "away": "Cleveland Guardians", "h_ml": 2.15, "a_ml": 1.71, "h_line": 1.5, "h_sp": 1.68, "a_line": -1.5, "a_sp": 2.20, "time": "2026-08-27 10:07"},
+        {"home": "Seattle Mariners", "away": "Philadelphia Phillies", "h_ml": 2.10, "a_ml": 1.75, "h_line": 1.5, "h_sp": 1.70, "a_line": -1.5, "a_sp": 2.18, "time": "2026-08-27 10:10"},
+        {"home": "San Diego Padres", "away": "Pittsburgh Pirates", "h_ml": 1.73, "a_ml": 2.12, "h_line": -1.5, "h_sp": 2.24, "a_line": 1.5, "a_sp": 1.66, "time": "2026-08-27 10:10"},
+        {"home": "Miami Marlins", "away": "Boston Red Sox", "h_ml": 2.18, "a_ml": 1.70, "h_line": 1.5, "h_sp": 1.68, "a_line": -1.5, "a_sp": 2.20, "time": "2026-08-27 06:40"},
+        {"home": "Washington Nationals", "away": "Colorado Rockies", "h_ml": 1.77, "a_ml": 2.06, "h_line": -1.5, "h_sp": 2.30, "a_line": 1.5, "a_sp": 1.64, "time": "2026-08-27 06:45"}
     ],
     "NPB": [
-        {"home": "Chiba Lotte Marines", "away": "Fukuoka S. Hawks", "h_ml": 2.25, "a_ml": 1.63, "h_line": 1.5, "h_sp": 1.62, "a_line": -1.5, "a_sp": 2.30, "time": "2026-08-27 11:00"},
-        {"home": "Chunichi Dragons", "away": "Hanshin Tigers", "h_ml": 1.80, "a_ml": 1.98, "h_line": -1.5, "h_sp": 2.35, "a_line": 1.5, "a_sp": 1.60, "time": "2026-08-27 11:00"},
-        {"home": "Hiroshima Carp", "away": "Yokohama BayStars", "h_ml": 1.64, "a_ml": 2.21, "h_line": -1.5, "h_sp": 2.18, "a_line": 1.5, "a_sp": 1.68, "time": "2026-08-27 11:00"},
-        {"home": "Orix Buffaloes", "away": "Rakuten Gold. Eagles", "h_ml": 1.66, "a_ml": 2.18, "h_line": -1.5, "h_sp": 2.20, "a_line": 1.5, "a_sp": 1.66, "time": "2026-08-27 11:00"},
-        {"home": "Yakult Swallows", "away": "Yomiuri Giants", "h_ml": 2.05, "a_ml": 1.74, "h_line": 1.5, "h_sp": 1.70, "a_line": -1.5, "a_sp": 2.15, "time": "2026-08-27 11:00"},
-        {"home": "Seibu Lions", "away": "Nippon Ham Fighters", "h_ml": 2.27, "a_ml": 1.63, "h_line": 1.5, "h_sp": 1.64, "a_line": -1.5, "a_sp": 2.28, "time": "2026-08-27 11:00"}
+        {"home": "Chiba Lotte Marines", "away": "Fukuoka S. Hawks", "h_ml": 2.25, "a_ml": 1.63, "h_line": 1.5, "h_sp": 1.62, "a_line": -1.5, "a_sp": 2.30, "time": "2026-08-27 17:00"},
+        {"home": "Chunichi Dragons", "away": "Hanshin Tigers", "h_ml": 1.80, "a_ml": 1.98, "h_line": -1.5, "h_sp": 2.35, "a_line": 1.5, "a_sp": 1.60, "time": "2026-08-27 17:00"},
+        {"home": "Hiroshima Carp", "away": "Yokohama BayStars", "h_ml": 1.64, "a_ml": 2.21, "h_line": -1.5, "h_sp": 2.18, "a_line": 1.5, "a_sp": 1.68, "time": "2026-08-27 17:00"},
+        {"home": "Orix Buffaloes", "away": "Rakuten Gold. Eagles", "h_ml": 1.66, "a_ml": 2.18, "h_line": -1.5, "h_sp": 2.20, "a_line": 1.5, "a_sp": 1.66, "time": "2026-08-27 17:00"},
+        {"home": "Yakult Swallows", "away": "Yomiuri Giants", "h_ml": 2.05, "a_ml": 1.74, "h_line": 1.5, "h_sp": 1.70, "a_line": -1.5, "a_sp": 2.15, "time": "2026-08-27 17:00"},
+        {"home": "Seibu Lions", "away": "Nippon Ham Fighters", "h_ml": 2.27, "a_ml": 1.63, "h_line": 1.5, "h_sp": 1.64, "a_line": -1.5, "a_sp": 2.28, "time": "2026-08-27 17:00"}
     ],
     "CPBL": [
-        {"home": "Uni Lions", "away": "Wei Chuan Dragons", "h_ml": 1.85, "a_ml": 1.89, "h_line": -1.5, "h_sp": 2.45, "a_line": 1.5, "a_sp": 1.55, "time": "2026-08-27 12:35"},
-        {"home": "Chinatrust Brothers", "away": "Rakuten Monkeys", "h_ml": 1.72, "a_ml": 2.08, "h_line": -1.5, "h_sp": 2.25, "a_line": 1.5, "a_sp": 1.65, "time": "2026-08-27 12:35"},
-        {"home": "Fubon Guardians", "away": "TSG Hawks", "h_ml": 1.80, "a_ml": 1.95, "h_line": -1.5, "h_sp": 2.38, "a_line": 1.5, "a_sp": 1.58, "time": "2026-08-27 12:35"}
+        {"home": "Uni Lions", "away": "Wei Chuan Dragons", "h_ml": 1.85, "a_ml": 1.89, "h_line": -1.5, "h_sp": 2.45, "a_line": 1.5, "a_sp": 1.55, "time": "2026-08-27 18:35"},
+        {"home": "Chinatrust Brothers", "away": "Rakuten Monkeys", "h_ml": 1.72, "a_ml": 2.08, "h_line": -1.5, "h_sp": 2.25, "a_line": 1.5, "a_sp": 1.65, "time": "2026-08-27 18:35"},
+        {"home": "Fubon Guardians", "away": "TSG Hawks", "h_ml": 1.80, "a_ml": 1.95, "h_line": -1.5, "h_sp": 2.38, "a_line": 1.5, "a_sp": 1.58, "time": "2026-08-27 18:35"}
     ],
     "LCK": [
-        {"home": "KT Rolster", "away": "OK BRION", "h_ml": 1.28, "a_ml": 3.55, "h_line": -1.5, "h_sp": 1.85, "a_line": 1.5, "a_sp": 1.95, "time": "2026-08-27 10:00"},
-        {"home": "Nongshim RedForce", "away": "FearX", "h_ml": 2.15, "a_ml": 1.66, "h_line": 1.5, "h_sp": 1.65, "a_line": -1.5, "a_sp": 2.20, "time": "2026-08-27 12:30"},
-        {"home": "T1", "away": "Dplus KIA", "h_ml": 1.35, "a_ml": 3.10, "h_line": -1.5, "h_sp": 1.98, "a_line": 1.5, "a_sp": 1.82, "time": "2026-08-28 10:00"}
+        {"home": "KT Rolster", "away": "OK BRION", "h_ml": 1.28, "a_ml": 3.55, "h_line": -1.5, "h_sp": 1.85, "a_line": 1.5, "a_sp": 1.95, "time": "2026-08-27 16:00"},
+        {"home": "Nongshim RedForce", "away": "FearX", "h_ml": 2.15, "a_ml": 1.66, "h_line": 1.5, "h_sp": 1.65, "a_line": -1.5, "a_sp": 2.20, "time": "2026-08-27 18:30"},
+        {"home": "T1", "away": "Dplus KIA", "h_ml": 1.35, "a_ml": 3.10, "h_line": -1.5, "h_sp": 1.98, "a_line": 1.5, "a_sp": 1.82, "time": "2026-08-28 16:00"}
     ],
     "LPL": [
-        {"home": "EDward Gaming", "away": "Ninjas in Pyjamas", "h_ml": 2.45, "a_ml": 1.52, "h_line": 1.5, "h_sp": 1.55, "a_line": -1.5, "a_sp": 2.40, "time": "2026-08-28 08:00"},
-        {"home": "TT Gaming", "away": "Invictus Gaming", "h_ml": 2.10, "a_ml": 1.70, "h_line": 1.5, "h_sp": 1.68, "a_line": -1.5, "a_sp": 2.15, "time": "2026-08-28 11:00"},
-        {"home": "Top Esports", "away": "LGD Gaming", "h_ml": 1.18, "a_ml": 4.60, "h_line": -1.5, "h_sp": 1.60, "a_line": 1.5, "a_sp": 2.30, "time": "2026-08-29 11:00"},
-        {"home": "JD Gaming", "away": "Team WE", "h_ml": 1.32, "a_ml": 3.25, "h_line": -1.5, "h_sp": 1.92, "a_line": 1.5, "a_sp": 1.88, "time": "2026-08-30 11:00"}
+        {"home": "EDward Gaming", "away": "Ninjas in Pyjamas", "h_ml": 2.45, "a_ml": 1.52, "h_line": 1.5, "h_sp": 1.55, "a_line": -1.5, "a_sp": 2.40, "time": "2026-08-28 17:00"},
+        {"home": "TT Gaming", "away": "Invictus Gaming", "h_ml": 2.10, "a_ml": 1.70, "h_line": 1.5, "h_sp": 1.68, "a_line": -1.5, "a_sp": 2.15, "time": "2026-08-28 19:00"},
+        {"home": "Top Esports", "away": "LGD Gaming", "h_ml": 1.18, "a_ml": 4.60, "h_line": -1.5, "h_sp": 1.60, "a_line": 1.5, "a_sp": 2.30, "time": "2026-08-29 17:00"},
+        {"home": "JD Gaming", "away": "Team WE", "h_ml": 1.32, "a_ml": 3.25, "h_line": -1.5, "h_sp": 1.92, "a_line": 1.5, "a_sp": 1.88, "time": "2026-08-30 19:00"}
     ]
 }
 
@@ -244,7 +244,7 @@ class RealLiveScraper:
                                         "league": league,
                                         "home_team": h_clean,
                                         "away_team": a_clean,
-                                        "start_time": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                                        "start_time": config.get_taiwan_now_str("%Y-%m-%d %H:%M"),
                                         "sb_home_ml": o1,
                                         "sb_away_ml": o2,
                                         "sb_h_sp_line": h_line,

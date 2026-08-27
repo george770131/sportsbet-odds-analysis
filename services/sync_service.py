@@ -24,7 +24,7 @@ class SyncService:
             start_t = time.time()
             synced_count = real_live_scraper.sync_to_database()
             self.sync_count += 1
-            self.last_sync_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            self.last_sync_time = config.get_taiwan_now_str("%Y-%m-%d %H:%M:%S")
             duration = round(time.time() - start_t, 2)
             
             return {

@@ -4,6 +4,18 @@
 """
 import os
 from pathlib import Path
+from datetime import datetime, timezone, timedelta
+
+# 台灣時間 (UTC+8 / Asia/Taipei) 全域時區標準
+TAIWAN_TZ = timezone(timedelta(hours=8))
+
+def get_taiwan_now() -> datetime:
+    """取得當前台灣時間 (UTC+8) datetime 物件"""
+    return datetime.now(timezone.utc).astimezone(TAIWAN_TZ)
+
+def get_taiwan_now_str(fmt: str = "%Y-%m-%d %H:%M:%S") -> str:
+    """取得當前台灣時間 (UTC+8) 格式化字串"""
+    return get_taiwan_now().strftime(fmt)
 
 # 專案基礎路徑
 BASE_DIR = Path(__file__).resolve().parent
