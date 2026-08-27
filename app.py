@@ -20,6 +20,7 @@ from analytics.arbitrage import arbitrage_scanner
 from analytics.ev_calculator import ev_calculator
 from analytics.backtester import backtester
 from services.sync_service import sync_service
+from scrapers.the_odds_api_scraper import the_odds_api
 
 # 頁面基礎設定
 st.set_page_config(
@@ -231,18 +232,45 @@ with st.sidebar:
     selected_league_raw = st.selectbox("聯盟篩選 (League Filter)", options=league_options, index=0)
     selected_league = None if "全部" in selected_league_raw else selected_league_raw
 
+    # The Odds API 官方數據專線設定
+    st.markdown("### 🔑 官方數據專線 (The Odds API)")
+    odds_api_key_input = st.text_input(
+        "輸入 The Odds API Key",
+        value=st.session_state.get("user_odds_api_key", config.THE_ODDS_API_KEY),
+        type="password",
+        help="在 the-odds-api.com 免費註冊取得 Key (每月 500 次免費呼叫)"
+    )
+    if odds_api_key_input:
+        st.session_state["user_odds_api_key"] = odds_api_key_input
+        st.markdown(f"""
+        <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid #10B981; border-radius: 6px; padding: 8px 10px; font-size: 11.5px; margin-bottom: 8px;">
+            <span style="color: #10B981; font-weight: 700;">🟢 官方專線就緒 (Sportsbet 直連)</span><br>
+            <span style="color: #9CA3AF;">本月剩餘額度: <b>{the_odds_api.requests_remaining} / 500</b> 次</span>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid #3B82F6; border-radius: 6px; padding: 8px 10px; font-size: 11.5px; margin-bottom: 8px;">
+            <span style="color: #60A5FA; font-weight: 600;">💡 領取官方專線 API Key</span><br>
+            <a href="https://the-odds-api.com/" target="_blank" style="color: #F59E0B; text-decoration: underline; font-weight:700;">👉 前往 the-odds-api.com 免費領取</a>
+        </div>
+        """, unsafe_allow_html=True)
+
     st.divider()
     
     # 手動即時同步
     st.markdown("### ⚡ 數據同步 (Live Sync)")
     if st.button("🚀 立即同步最新盤口數據", use_container_width=True):
         with st.spinner("正在自市場獲取最新即時盤口數據..."):
-            sync_res = sync_service.sync_once()
-            st.success(f"同步成功！共更新 {sync_res['sportsbet_events']} 場賽事，耗時 {sync_res['duration_seconds']} 秒")
+            sync_res = sync_service.sync_once(api_key=odds_api_key_input)
+            st.success(f"[{sync_res.get('mode', '即時同步')}] 成功！更新 {sync_res['sportsbet_events']} 場賽事，耗時 {sync_res['duration_seconds']} 秒")
+            if sync_res.get("api_message"):
+                st.caption(f"ℹ️ {sync_res['api_message']}")
             time.sleep(0.5)
             st.rerun()
 
-    st.caption(f"🕒 前次同步時間 (台灣時間)：`{sync_service.last_sync_time}`")
+    st.caption(f"🕒 前次同步 (台灣時間)：`{sync_service.last_sync_time}`")
+    st.caption(f"📡 目前數據模式：`{sync_service.source_mode}`")
     
     st.divider()
     db_summary = db.get_db_summary()
@@ -874,6 +902,39 @@ with tab_db:
                 res = sync_service.sync_once()
                 st.success(f"同步完成！已獲取 {res['sportsbet_events']} 場賽事實時數據")
                 st.rerun()
+
+    st.divider()
+
+    st.subheader("📡 官方體育數據專線 (The Odds API) 整合管理")
+    st.caption("直接連接全球頂級體育數據專線，免翻牆獲取澳洲 Sportsbet、Bet365、TAB、Pinnacle 官方即時盤口。")
+
+    col_api_test1, col_api_test2 = st.columns([2, 1])
+    with col_api_test1:
+        test_key = st.text_input("測試 API Key 連線狀態", value=st.session_state.get("user_odds_api_key", config.THE_ODDS_API_KEY), type="password", key="tab_db_key_input")
+    with col_api_test2:
+        st.write("")
+        st.write("")
+        if st.button("🔍 測試 API 連線與查詢額度", use_container_width=True):
+            if test_key:
+                valid, msg, info = the_odds_api.check_api_key(test_key)
+                if valid:
+                    st.session_state["user_odds_api_key"] = test_key
+                    st.success(f"✅ {msg}")
+                    st.info(f"📊 本月剩餘額度: **{info.get('remaining', 0)}** 次 | 已使用: **{info.get('used', 0)}** 次")
+                else:
+                    st.error(f"❌ {msg}")
+            else:
+                st.warning("請先輸入 API Key！")
+
+    st.markdown("""
+    <div style="background: #111827; border: 1px solid #1F2937; border-radius: 8px; padding: 14px 18px; margin-top: 10px; font-size: 13px; color: #9CA3AF;">
+        <b style="color: #F9FAFB;">💡 如何 30 秒免費取得 The Odds API Key？</b><br>
+        1. 前往 <a href="https://the-odds-api.com/" target="_blank" style="color: #3B82F6; text-decoration: underline;">The Odds API 官網 (https://the-odds-api.com)</a><br>
+        2. 點擊 <b>「Get Free API Key」</b>，填寫 Email 即可免費註冊（免綁信用卡）。<br>
+        3. 收取 Email 驗證信，將信中的 <b>API Key</b> 複製貼到左側邊欄或上方輸入框。<br>
+        4. 點擊「立即同步最新盤口數據」，網站即切換至 <b>Sportsbet 澳洲官方 100% 真實專線</b>！
+    </div>
+    """, unsafe_allow_html=True)
 
     st.divider()
     st.subheader("📑 最近 50 場歷史賽事記錄")
