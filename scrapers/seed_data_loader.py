@@ -251,15 +251,11 @@ def generate_live_upcoming_matches() -> List[Dict[str, Any]]:
         {"sport": "baseball", "league": "NPB", "home": "阪神虎 (Tigers)", "away": "廣島東洋鯉魚 (Carp)", "hours": 5, "fav_is_home": True, "base_fav_ml": 1.62, "base_fav_sp": 2.38},
         {"sport": "baseball", "league": "NPB", "home": "福岡軟銀鷹 (Hawks)", "away": "埼玉西武獅 (Lions)", "hours": 8, "fav_is_home": True, "base_fav_ml": 1.28, "base_fav_sp": 1.75},
         
-        # CPBL
-        {"sport": "baseball", "league": "CPBL", "home": "中信兄弟 (Brothers)", "away": "富邦悍將 (Guardians)", "hours": 2, "fav_is_home": True, "base_fav_ml": 1.35, "base_fav_sp": 1.88},
-        {"sport": "baseball", "league": "CPBL", "home": "樂天桃猿 (Monkeys)", "away": "統一7-ELEVEn獅 (Lions)", "hours": 7, "fav_is_home": False, "base_fav_ml": 1.58, "base_fav_sp": 2.28},
-        {"sport": "baseball", "league": "CPBL", "home": "味全龍 (Dragons)", "away": "台鋼雄鷹 (Hawks)", "hours": 15, "fav_is_home": True, "base_fav_ml": 1.42, "base_fav_sp": 2.05},
+        # CPBL (今日 8/27 僅 1 場)
+        {"sport": "baseball", "league": "CPBL", "home": "富邦悍將 (Guardians)", "away": "台鋼雄鷹 (Hawks)", "hours": 1, "fav_is_home": True, "base_fav_ml": 1.78, "base_fav_sp": 2.35},
 
-        # LCK
-        {"sport": "esports", "league": "LCK", "home": "T1", "away": "Dplus KIA (DK)", "hours": 2, "fav_is_home": True, "base_fav_ml": 1.28, "base_fav_sp": 1.95},
-        {"sport": "esports", "league": "LCK", "home": "Gen.G", "away": "KT Rolster (KT)", "hours": 5, "fav_is_home": True, "base_fav_ml": 1.15, "base_fav_sp": 1.55},
-        {"sport": "esports", "league": "LCK", "home": "Hanwha Life Esports (HLE)", "away": "DRX", "hours": 14, "fav_is_home": True, "base_fav_ml": 1.12, "base_fav_sp": 1.48},
+        # LCK (今日 8/27 入圍賽 1 場)
+        {"sport": "esports", "league": "LCK", "home": "Nongshim RedForce (NS)", "away": "FearX (FOX)", "hours": 2, "fav_is_home": False, "base_fav_ml": 1.66, "base_fav_sp": 2.20},
 
         # LPL
         {"sport": "esports", "league": "LPL", "home": "Bilibili Gaming (BLG)", "away": "Weibo Gaming (WBG)", "hours": 3, "fav_is_home": True, "base_fav_ml": 1.22, "base_fav_sp": 1.78},

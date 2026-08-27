@@ -165,14 +165,10 @@ FALLBACK_REAL_ODDS = {
         {"home": "Seibu Lions", "away": "Nippon Ham Fighters", "h_ml": 2.27, "a_ml": 1.63, "h_line": 1.5, "h_sp": 1.64, "a_line": -1.5, "a_sp": 2.28, "time": "2026-08-27 17:00"}
     ],
     "CPBL": [
-        {"home": "Uni Lions", "away": "Wei Chuan Dragons", "h_ml": 1.85, "a_ml": 1.89, "h_line": -1.5, "h_sp": 2.45, "a_line": 1.5, "a_sp": 1.55, "time": "2026-08-27 18:35"},
-        {"home": "Chinatrust Brothers", "away": "Rakuten Monkeys", "h_ml": 1.72, "a_ml": 2.08, "h_line": -1.5, "h_sp": 2.25, "a_line": 1.5, "a_sp": 1.65, "time": "2026-08-27 18:35"},
-        {"home": "Fubon Guardians", "away": "TSG Hawks", "h_ml": 1.80, "a_ml": 1.95, "h_line": -1.5, "h_sp": 2.38, "a_line": 1.5, "a_sp": 1.58, "time": "2026-08-27 18:35"}
+        {"home": "Fubon Guardians", "away": "TSG Hawks", "h_ml": 1.78, "a_ml": 2.05, "h_line": -1.5, "h_sp": 2.35, "a_line": 1.5, "a_sp": 1.60, "time": "2026-08-27 18:35"}
     ],
     "LCK": [
-        {"home": "KT Rolster", "away": "OK BRION", "h_ml": 1.28, "a_ml": 3.55, "h_line": -1.5, "h_sp": 1.85, "a_line": 1.5, "a_sp": 1.95, "time": "2026-08-27 16:00"},
-        {"home": "Nongshim RedForce", "away": "FearX", "h_ml": 2.15, "a_ml": 1.66, "h_line": 1.5, "h_sp": 1.65, "a_line": -1.5, "a_sp": 2.20, "time": "2026-08-27 18:30"},
-        {"home": "T1", "away": "Dplus KIA", "h_ml": 1.35, "a_ml": 3.10, "h_line": -1.5, "h_sp": 1.98, "a_line": 1.5, "a_sp": 1.82, "time": "2026-08-28 16:00"}
+        {"home": "Nongshim RedForce", "away": "FearX", "h_ml": 2.15, "a_ml": 1.66, "h_line": 1.5, "h_sp": 1.65, "a_line": -1.5, "a_sp": 2.20, "time": "2026-08-27 16:00"}
     ],
     "LPL": [
         {"home": "EDward Gaming", "away": "Ninjas in Pyjamas", "h_ml": 2.45, "a_ml": 1.52, "h_line": 1.5, "h_sp": 1.55, "a_line": -1.5, "a_sp": 2.40, "time": "2026-08-28 17:00"},
