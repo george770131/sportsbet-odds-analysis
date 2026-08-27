@@ -31,6 +31,13 @@ st.set_page_config(
 
 # 初始化資料庫
 init_seed_database(force_reload=False)
+from scrapers.real_live_scraper import real_live_scraper
+if "app_synced" not in st.session_state:
+    try:
+        real_live_scraper.sync_to_database()
+        st.session_state["app_synced"] = True
+    except Exception:
+        pass
 
 # ==========================
 # 💼 專業現代金融量化風格 CSS
