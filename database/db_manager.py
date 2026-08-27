@@ -24,28 +24,37 @@ class DatabaseManager:
         from database.models import SCHEMA_SQL
         with self.get_connection() as conn:
             conn.executescript(SCHEMA_SQL)
-            
-            # 自動檢測並補足新欄位 (Migration)
+            conn.commit()
+        self.ensure_schema()
+
+    def ensure_schema(self):
+        """確保所有資料庫欄位 100% 存在 (熱遷移保證)"""
+        with self.get_connection() as conn:
+            # 1. 確保 matches 表欄位
+            matches_cols = [
+                ("live_score_home", "INTEGER DEFAULT 0"),
+                ("live_score_away", "INTEGER DEFAULT 0"),
+                ("live_period", "TEXT DEFAULT ''"),
+                ("final_score", "TEXT DEFAULT ''")
+            ]
+            for col, ctype in matches_cols:
+                try:
+                    conn.execute(f"ALTER TABLE matches ADD COLUMN {col} {ctype}")
+                except Exception:
+                    pass
+
+            # 2. 確保 live_odds 與 odds_history 欄位
             for table in ["live_odds", "odds_history"]:
-                cur = conn.execute(f"PRAGMA table_info({table})")
-                cols = [row["name"] for row in cur.fetchall()]
-                if "home_handicap_line" not in cols:
-                    conn.execute(f"ALTER TABLE {table} ADD COLUMN home_handicap_line REAL DEFAULT -1.5")
-                if "away_handicap_line" not in cols:
-                    conn.execute(f"ALTER TABLE {table} ADD COLUMN away_handicap_line REAL DEFAULT 1.5")
-
-            # matches 欄位熱遷移 (場中比分與賽況)
-            cur_m = conn.execute("PRAGMA table_info(matches)")
-            m_cols = [row["name"] for row in cur_m.fetchall()]
-            if "live_score_home" not in m_cols:
-                conn.execute("ALTER TABLE matches ADD COLUMN live_score_home INTEGER DEFAULT 0")
-            if "live_score_away" not in m_cols:
-                conn.execute("ALTER TABLE matches ADD COLUMN live_score_away INTEGER DEFAULT 0")
-            if "live_period" not in m_cols:
-                conn.execute("ALTER TABLE matches ADD COLUMN live_period TEXT DEFAULT ''")
-            if "final_score" not in m_cols:
-                conn.execute("ALTER TABLE matches ADD COLUMN final_score TEXT DEFAULT ''")
-
+                for col, ctype in [
+                    ("home_handicap_line", "REAL DEFAULT -1.5"),
+                    ("away_handicap_line", "REAL DEFAULT 1.5"),
+                    ("handicap_home_odds", "REAL"),
+                    ("handicap_away_odds", "REAL")
+                ]:
+                    try:
+                        conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {ctype}")
+                    except Exception:
+                        pass
             conn.commit()
 
     # ==========================
@@ -142,6 +151,7 @@ class DatabaseManager:
 
     def get_live_matches_with_odds(self, sport: Optional[str] = None, league: Optional[str] = None) -> pd.DataFrame:
         """取得包含最新 Sportsbet 賠率與市場對比的即時賽事列表"""
+        self.ensure_schema()
         query = """
         SELECT 
             m.id AS match_id,
@@ -188,7 +198,21 @@ class DatabaseManager:
         query += " ORDER BY m.start_time ASC"
 
         with self.get_connection() as conn:
-            return pd.read_sql_query(query, conn, params=params)
+            try:
+                return pd.read_sql_query(query, conn, params=params)
+            except Exception as e:
+                # 若發生欄位異常，執行熱修復並重試
+                self.ensure_schema()
+                try:
+                    return pd.read_sql_query(query, conn, params=params)
+                except Exception:
+                    # 容錯備援查詢
+                    fallback_q = "SELECT m.id AS match_id, m.sport, m.league, m.home_team, m.away_team, m.start_time, m.status, m.favorite_team FROM matches m"
+                    df = pd.read_sql_query(fallback_q, conn)
+                    for col in ["live_score_home", "live_score_away", "live_period", "final_score", "sb_home_odds", "sb_away_odds", "sb_h_handicap_line", "sb_a_handicap_line", "sb_h_spread_odds", "sb_a_spread_odds", "sb_total_line", "sb_over_odds", "sb_under_odds", "odds_updated_at", "op_home_odds", "op_away_odds", "op_h_handicap_line", "op_a_handicap_line", "op_h_spread_odds", "op_a_spread_odds"]:
+                        if col not in df.columns:
+                            df[col] = ""
+                    return df
 
     def get_odds_history(self, match_id: str, bookmaker: str = "Sportsbet") -> pd.DataFrame:
         """取得單場比賽的歷史賠率變動數據"""
