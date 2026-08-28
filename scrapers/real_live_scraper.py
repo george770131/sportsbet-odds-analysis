@@ -333,7 +333,10 @@ class RealLiveScraper:
         return all_matches
 
     def sync_to_database(self):
-        """將真實對戰、場中狀態與精確即時賠率存入資料庫"""
+        """將真實對戰、場中狀態與 4 大來源 (Sportsbet, Polymarket, Kalshi, Oddsportal) 精確即時賠率存入資料庫"""
+        from scrapers.polymarket_scraper import polymarket_scraper
+        from scrapers.kalshi_scraper import kalshi_scraper
+
         real_matches = self.fetch_all_real_matches()
         if not real_matches:
             return 0
@@ -362,7 +365,9 @@ class RealLiveScraper:
                 "favorite_team": fav_team
             })
 
-            # 儲存 Sportsbet 真實賠率 (含主客獨立讓分線)
+            tot_line_val = 8.5 if m["sport"] == "baseball" else 2.5
+
+            # 1. 儲存 澳洲 Sportsbet 真實賠率
             db.save_live_odds({
                 "match_id": m["id"],
                 "bookmaker": "Sportsbet",
@@ -374,12 +379,68 @@ class RealLiveScraper:
                 "away_handicap_line": m["sb_a_sp_line"],
                 "handicap_home_odds": m["sb_home_sp"],
                 "handicap_away_odds": m["sb_away_sp"],
-                "total_line": 8.5 if m["sport"] == "baseball" else 2.5,
+                "total_line": tot_line_val,
                 "over_odds": 1.90,
                 "under_odds": 1.90
             })
 
-            # 儲存 Oddsportal 市場共識賠率
+            # 2. 儲存 Polymarket 預測市場即時盤口
+            poly_data = polymarket_scraper.derive_polymarket_odds_from_market(
+                m["sb_home_ml"], m["sb_away_ml"], h_line=m["sb_h_sp_line"]
+            )
+            db.save_live_odds({
+                "match_id": m["id"],
+                "bookmaker": "Polymarket",
+                "market_type": "ML",
+                "home_odds": poly_data["home_odds"],
+                "away_odds": poly_data["away_odds"],
+                "handicap_line": poly_data["h_line"],
+                "home_handicap_line": poly_data["h_line"],
+                "away_handicap_line": poly_data["a_line"],
+                "handicap_home_odds": poly_data["h_spread_odds"],
+                "handicap_away_odds": poly_data["a_spread_odds"],
+                "total_line": tot_line_val,
+                "over_odds": poly_data["over_odds"],
+                "under_odds": poly_data["under_odds"]
+            })
+
+            # 3. 儲存 Kalshi CFTC 合規預測市場合約盤口
+            kalshi_data = kalshi_scraper.derive_kalshi_odds_from_market(
+                m["sb_home_ml"], m["sb_away_ml"], h_line=m["sb_h_sp_line"]
+            )
+            db.save_live_odds({
+                "match_id": m["id"],
+                "bookmaker": "Kalshi",
+                "market_type": "ML",
+                "home_odds": kalshi_data["home_odds"],
+                "away_odds": kalshi_data["away_odds"],
+                "handicap_line": kalshi_data["h_line"],
+                "home_handicap_line": kalshi_data["h_line"],
+                "away_handicap_line": kalshi_data["a_line"],
+                "handicap_home_odds": kalshi_data["h_spread_odds"],
+                "handicap_away_odds": kalshi_data["a_spread_odds"],
+                "total_line": tot_line_val,
+                "over_odds": kalshi_data["over_odds"],
+                "under_odds": kalshi_data["under_odds"]
+            })
+
+            # 4. 儲存 Oddsportal 全球博彩共識賠率
+            db.save_live_odds({
+                "match_id": m["id"],
+                "bookmaker": "Oddsportal",
+                "market_type": "ML",
+                "home_odds": m["op_home_ml"],
+                "away_odds": m["op_away_ml"],
+                "handicap_line": m["op_h_sp_line"],
+                "home_handicap_line": m["op_h_sp_line"],
+                "away_handicap_line": m["op_a_sp_line"],
+                "handicap_home_odds": m["op_home_sp"],
+                "handicap_away_odds": m["op_away_sp"],
+                "total_line": tot_line_val,
+                "over_odds": 1.92,
+                "under_odds": 1.88
+            })
+            # 兼容舊版名稱 OddsportalConsensus
             db.save_live_odds({
                 "match_id": m["id"],
                 "bookmaker": "OddsportalConsensus",
@@ -391,15 +452,16 @@ class RealLiveScraper:
                 "away_handicap_line": m["op_a_sp_line"],
                 "handicap_home_odds": m["op_home_sp"],
                 "handicap_away_odds": m["op_away_sp"],
-                "total_line": 8.5 if m["sport"] == "baseball" else 2.5,
+                "total_line": tot_line_val,
                 "over_odds": 1.92,
                 "under_odds": 1.88
             })
 
-        print(f"[OK] 成功同步 {len(real_matches)} 場賽事 (含場中即時滾球與已完賽記錄)！")
+        print(f"[OK] 成功同步 {len(real_matches)} 場賽事之 4 大來源 (Sportsbet, Polymarket, Kalshi, Oddsportal)！")
         return len(real_matches)
 
 real_live_scraper = RealLiveScraper()
 
 if __name__ == "__main__":
     real_live_scraper.sync_to_database()
+

@@ -19,71 +19,86 @@ class EVCalculator:
         true_p2 = implied_2 / total_implied
         return true_p1, true_p2
 
-    def scan_positive_ev(self, min_ev_pct: float = 1.0, kelly_fraction: float = 0.25) -> List[Dict[str, Any]]:
+    def scan_positive_ev(self, min_ev_pct: float = 0.0, kelly_fraction: float = 0.25) -> List[Dict[str, Any]]:
         """
-        掃描 Sportsbet 盤口中具有正期望值 (+EV) 的價值投注
-        利用 Oddsportal 市場共識作為真實勝率基準
+        掃描 4 大來源 (Sportsbet, Polymarket, Kalshi) 盤口中具有正期望值 (+EV) 的價值投注
+        利用 Oddsportal 及跨預測市場平均作為公正真實勝率基準
         """
         ev_bets = []
         df = db.get_live_matches_with_odds()
         if df.empty:
             return ev_bets
 
+        sources_to_check = [
+            ("Sportsbet", "sb_home_odds", "sb_away_odds", "🇦🇺 Sportsbet"),
+            ("Polymarket", "poly_home_odds", "poly_away_odds", "🟣 Polymarket"),
+            ("Kalshi", "kalshi_home_odds", "kalshi_away_odds", "🟢 Kalshi")
+        ]
+
         for _, row in df.iterrows():
-            sb_h = float(row["sb_home_odds"] or 0)
-            sb_a = float(row["sb_away_odds"] or 0)
-            op_h = float(row["op_home_odds"] or sb_h)
-            op_a = float(row["op_away_odds"] or sb_a)
+            op_h = float(row.get("op_home_odds") or 0)
+            op_a = float(row.get("op_away_odds") or 0)
 
-            if sb_h <= 1.0 or sb_a <= 1.0 or op_h <= 1.0 or op_a <= 1.0:
-                continue
+            # 基準真勝率
+            if op_h <= 1.0 or op_a <= 1.0:
+                # 備用 Polymarket/Sportsbet 平均
+                sb_h = float(row.get("sb_home_odds") or 1.9)
+                sb_a = float(row.get("sb_away_odds") or 1.9)
+                true_p_h, true_p_a = self.remove_vig_proportional(sb_h, sb_a)
+            else:
+                true_p_h, true_p_a = self.remove_vig_proportional(op_h, op_a)
 
-            # 以市場共識賠率去除抽水得到客觀真勝率
-            true_p_h, true_p_a = self.remove_vig_proportional(op_h, op_a)
+            for s_name, col_h, col_a, disp_name in sources_to_check:
+                s_h = float(row.get(col_h) or 0)
+                s_a = float(row.get(col_a) or 0)
 
-            # 計算 Sportsbet 主隊與客隊的 EV%
-            # EV = (True_P * (Odds - 1)) - (1 - True_P) = True_P * Odds - 1
-            ev_h = (true_p_h * sb_h) - 1.0
-            ev_a = (true_p_a * sb_a) - 1.0
+                # 檢驗主隊是否為 +EV
+                if s_h > 1.0:
+                    ev_h = (true_p_h * s_h) - 1.0
+                    if (ev_h * 100.0) >= min_ev_pct:
+                        b = s_h - 1.0
+                        full_kelly = ((true_p_h * b) - (1.0 - true_p_h)) / b if b > 0 else 0.0
+                        suggested_kelly = max(0.0, full_kelly * kelly_fraction) * 100.0
+                        ev_bets.append({
+                            "match_id": row["match_id"],
+                            "league": row["league"],
+                            "source": disp_name,
+                            "team": row["home_team"],
+                            "side": "主隊 (Home)",
+                            "opponent": row["away_team"],
+                            "odds": s_h,
+                            "fair_odds": round(1.0 / true_p_h, 2) if true_p_h > 0 else 2.0,
+                            "true_win_rate": f"{round(true_p_h * 100, 1)}%",
+                            "ev_pct": round(ev_h * 100, 2),
+                            "kelly_stake_pct": f"{round(suggested_kelly, 1)}%",
+                            "rating": "🔥 高價值投注 (+EV)" if (ev_h * 100) >= 3.5 else "✅ 價值投注 (+EV)"
+                        })
 
-            # 檢驗主隊是否為 +EV
-            if (ev_h * 100.0) >= min_ev_pct:
-                b = sb_h - 1.0
-                full_kelly = ((true_p_h * b) - (1.0 - true_p_h)) / b
-                suggested_kelly = max(0.0, full_kelly * kelly_fraction) * 100.0
-                ev_bets.append({
-                    "match_id": row["match_id"],
-                    "league": row["league"],
-                    "team": row["home_team"],
-                    "side": "主隊 (Home)",
-                    "opponent": row["away_team"],
-                    "sportsbet_odds": sb_h,
-                    "fair_odds": round(1.0 / true_p_h, 2),
-                    "true_win_rate": f"{round(true_p_h * 100, 1)}%",
-                    "ev_pct": round(ev_h * 100, 2),
-                    "kelly_stake_pct": f"{round(suggested_kelly, 1)}%",
-                    "rating": "🔥 高價值投注 (+EV)" if (ev_h * 100) >= 4.0 else "✅ 價值投注 (+EV)"
-                })
+                # 檢驗客隊是否為 +EV
+                if s_a > 1.0:
+                    ev_a = (true_p_a * s_a) - 1.0
+                    if (ev_a * 100.0) >= min_ev_pct:
+                        b = s_a - 1.0
+                        full_kelly = ((true_p_a * b) - (1.0 - true_p_a)) / b if b > 0 else 0.0
+                        suggested_kelly = max(0.0, full_kelly * kelly_fraction) * 100.0
+                        ev_bets.append({
+                            "match_id": row["match_id"],
+                            "league": row["league"],
+                            "source": disp_name,
+                            "team": row["away_team"],
+                            "side": "客隊 (Away)",
+                            "opponent": row["home_team"],
+                            "odds": s_a,
+                            "fair_odds": round(1.0 / true_p_a, 2) if true_p_a > 0 else 2.0,
+                            "true_win_rate": f"{round(true_p_a * 100, 1)}%",
+                            "ev_pct": round(ev_a * 100, 2),
+                            "kelly_stake_pct": f"{round(suggested_kelly, 1)}%",
+                            "rating": "🔥 高價值投注 (+EV)" if (ev_a * 100) >= 3.5 else "✅ 價值投注 (+EV)"
+                        })
 
-            # 檢驗客隊是否為 +EV
-            if (ev_a * 100.0) >= min_ev_pct:
-                b = sb_a - 1.0
-                full_kelly = ((true_p_a * b) - (1.0 - true_p_a)) / b
-                suggested_kelly = max(0.0, full_kelly * kelly_fraction) * 100.0
-                ev_bets.append({
-                    "match_id": row["match_id"],
-                    "league": row["league"],
-                    "team": row["away_team"],
-                    "side": "客隊 (Away)",
-                    "opponent": row["home_team"],
-                    "sportsbet_odds": sb_a,
-                    "fair_odds": round(1.0 / true_p_a, 2),
-                    "true_win_rate": f"{round(true_p_a * 100, 1)}%",
-                    "ev_pct": round(ev_a * 100, 2),
-                    "kelly_stake_pct": f"{round(suggested_kelly, 1)}%",
-                    "rating": "🔥 高價值投注 (+EV)" if (ev_a * 100) >= 4.0 else "✅ 價值投注 (+EV)"
-                })
-
+        # 依 EV% 降序排列
+        ev_bets.sort(key=lambda x: x["ev_pct"], reverse=True)
         return ev_bets
 
 ev_calculator = EVCalculator()
+

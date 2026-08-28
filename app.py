@@ -200,7 +200,7 @@ with st.sidebar:
             📊 賭盤量化分析系統
         </div>
         <div style="font-size: 12px; color: #9CA3AF; margin-top: 2px;">
-            Sportsbet & Oddsportal Analytics Desk
+            Sportsbet • Polymarket • Kalshi • Oddsportal
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -296,14 +296,14 @@ st.markdown(f"""
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
         <div>
             <div class="pro-title">
-                📊 專業運動賭盤量化分析與決策終端
+                📊 4 大來源運動賭盤量化分析與決策終端
             </div>
             <div class="pro-subtitle">
-                涵蓋 Sportsbet 澳洲實時盤口水位、Oddsportal 歷史共識回測、低賠讓分最佳投資區間與 +EV 模型
+                整合 澳洲 Sportsbet、Polymarket 預測市場、Kalshi CFTC 合約、Oddsportal 全球共識 | 低賠讓分最佳投資區間與 +EV 模型
             </div>
         </div>
         <div style="display: flex; gap: 8px; margin-top: 6px; align-items: center;">
-            <span class="status-badge-green">● 實時連線中</span>
+            <span class="status-badge-green">● 4大來源實時連線中</span>
             <span class="status-badge-blue">🕒 台灣時間: {tw_current_time}</span>
             <span class="status-badge-amber">棒球/電競 5大聯盟</span>
         </div>
@@ -336,7 +336,7 @@ with c3:
     <div class="pro-card">
         <div class="pro-metric-label">無風險套利機會 (Surebets)</div>
         <div class="pro-metric-val" style="color: #F59E0B;">{len(arb_opps)} <span style="font-size:14px; font-weight:normal; color:#9CA3AF;">個</span></div>
-        <span class="status-badge-amber">跨平台價差掃描</span>
+        <span class="status-badge-amber">4大來源價差掃描</span>
     </div>
     """, unsafe_allow_html=True)
 
@@ -355,7 +355,7 @@ st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 # 💼 6 大專業量化分析分頁 (Tabs)
 # ==========================
 tab_sb, tab_fav, tab_live, tab_ev, tab_backtest, tab_db = st.tabs([
-    "🇦🇺 Sportsbet 即時免翻牆賠率看板",
+    "📊 4 大來源即時賠率看板 (Sportsbet / Polymarket / Kalshi / Oddsportal)",
     "🎯 低賠讓分最佳投資區間 (核心分析)",
     "⚡ 跨平台套利 (Surebet) 與 +EV 專區",
     "📈 盤口水位與跳水異動監控",
@@ -364,17 +364,17 @@ tab_sb, tab_fav, tab_live, tab_ev, tab_backtest, tab_db = st.tabs([
 ])
 
 # --------------------------------------------------
-# TAB 1: 🇦🇺 Sportsbet 即時免翻牆賠率看板
+# TAB 1: 📊 4 大來源即時賠率看板
 # --------------------------------------------------
 with tab_sb:
-    st.subheader("🇦🇺 Sportsbet Australia 官方即時盤口看板 (免 VPN 直連)")
-    st.caption("直連澳洲 Sportsbet 官方盤口行情，免掛 VPN 即可一覽 MLB、NPB、CPBL、LCK、LPL 全部即時賠率！")
+    st.subheader("📊 4 大來源即時賠率看板 (Sportsbet • Polymarket • Kalshi • Oddsportal)")
+    st.caption("完整整合 🇦🇺 澳洲 Sportsbet、🟣 Polymarket 預測市場、🟢 Kalshi CFTC 合約、🌐 Oddsportal 全球共識，點選下拉選單時即刻自動同步最新盤口！")
 
-    # 頂部控制列：聯盟與狀態雙重篩選
-    col_sb_ctrl1, col_sb_ctrl2, col_sb_ctrl3 = st.columns([2.5, 2, 1])
+    # 頂部控制列：6 個選項下拉選單與狀態篩選
+    col_sb_ctrl1, col_sb_ctrl2, col_sb_ctrl3 = st.columns([2.8, 2, 1.2])
     with col_sb_ctrl1:
         league_filter_tab = st.selectbox(
-            "選擇欲查看的賽事聯盟 (Select League)",
+            "選擇欲查看的賽事聯盟 (切換時自動同步最新賠率)",
             options=[
                 "全部賽事 (MLB / NPB / CPBL / LCK / LPL)",
                 "⚾ MLB (美國職棒)",
@@ -383,8 +383,19 @@ with tab_sb:
                 "🎮 LCK (韓國英雄聯盟)",
                 "🎮 LPL (中國英雄聯盟)"
             ],
-            index=0
+            index=0,
+            key="tab1_league_dropdown"
         )
+
+    # 監聽下拉選單切換動作：當點選或切換賽事時自動執行數據更新
+    if "last_tab1_selected_league" not in st.session_state:
+        st.session_state["last_tab1_selected_league"] = league_filter_tab
+    elif st.session_state["last_tab1_selected_league"] != league_filter_tab:
+        st.session_state["last_tab1_selected_league"] = league_filter_tab
+        with st.spinner(f"⚡ 正在自動獲取並更新「{league_filter_tab}」最新 4 大來源賠率..."):
+            sync_service.sync_once()
+        st.toast(f"✅ 已自動更新 {league_filter_tab} 4 大來源數據！", icon="⚡")
+
     with col_sb_ctrl2:
         status_filter_tab = st.selectbox(
             "賽事狀態過濾 (Match Status)",
@@ -399,11 +410,12 @@ with tab_sb:
     with col_sb_ctrl3:
         st.write("")
         st.write("")
-        if st.button("🔄 刷新最新盤口", use_container_width=True):
-            sync_service.sync_once()
+        if st.button("🔄 手動刷新 4 大來源", use_container_width=True):
+            with st.spinner("正在自市場獲取最新 4 大來源盤口..."):
+                sync_service.sync_once()
             st.rerun()
 
-    # 解析聯盟與狀態篩選
+    # 解析聯盟篩選
     target_tab_league = None
     if "MLB" in league_filter_tab:
         target_tab_league = "MLB"
@@ -427,6 +439,15 @@ with tab_sb:
         elif "已完賽" in status_filter_tab:
             live_df = live_df[live_df["status"] == "FINISHED"]
 
+    # 顯示即時自動同步時間戳記狀態列
+    tw_now_display = config.get_taiwan_now_str("%Y-%m-%d %H:%M:%S")
+    st.markdown(f"""
+    <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 6px; padding: 7px 14px; font-size: 12.5px; color: #10B981; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+        <div>⚡ <b>即時數據已就緒</b>：目前顯示「<b>{league_filter_tab}</b>」最新 4 大來源即時盤口 (已在選單動作時自動更新)</div>
+        <div style="color: #9CA3AF; font-size: 11.5px;">🕒 台灣時間：<span style="color:#F9FAFB; font-family:'JetBrains Mono';">{tw_now_display}</span> | 4 來源同步</div>
+    </div>
+    """, unsafe_allow_html=True)
+
     if not live_df.empty:
         # 即時狀態計數 Bar
         c_live = len(live_df[live_df["status"] == "LIVE"])
@@ -434,35 +455,25 @@ with tab_sb:
         c_fin = len(live_df[live_df["status"] == "FINISHED"])
         
         st.markdown(f"""
-        <div style="display:flex; gap:12px; margin-bottom:14px; font-size:13px;">
+        <div style="display:flex; gap:14px; margin-bottom:14px; font-size:13px;">
             <span style="color:#EF4444; font-weight:700;">🔴 場中進行中: {c_live} 場</span>
             <span style="color:#3B82F6; font-weight:700;">⏳ 即將開賽: {c_up} 場</span>
             <span style="color:#9CA3AF; font-weight:700;">🏁 今日已完賽: {c_fin} 場</span>
-            <span style="color:#6B7280;">(共 {len(live_df)} 場)</span>
+            <span style="color:#6B7280;">(共 {len(live_df)} 場賽事)</span>
         </div>
         """, unsafe_allow_html=True)
         
-        # 逐場渲染專業 Sportsbook 盤口卡片
+        # 逐場渲染包含 4 大來源表格化比對之專業卡片
         for _, row in live_df.iterrows():
             m_status = row.get("status", "UPCOMING")
             fav_is_home = float(row["sb_home_odds"] or 0) <= float(row["sb_away_odds"] or 0)
             
-            # 動態取得主客隊正確讓分線
+            # 動態取得主客隊讓分線
             h_line = float(row["sb_h_handicap_line"] if "sb_h_handicap_line" in row and pd.notna(row["sb_h_handicap_line"]) else (-1.5 if fav_is_home else 1.5))
             a_line = float(row["sb_a_handicap_line"] if "sb_a_handicap_line" in row and pd.notna(row["sb_a_handicap_line"]) else (1.5 if fav_is_home else -1.5))
             
             is_esports = (row.get("sport") == "esports") or (row.get("league") in ["LCK", "LPL"])
-            
-            if is_esports:
-                h_sp_badge = "🔥 讓局 (2:0勝)" if h_line < 0 else "受讓 (+1.5局)"
-                a_sp_badge = "🔥 讓局 (2:0勝)" if a_line < 0 else "受讓 (+1.5局)"
-                h_sp_text = f"主隊 {row['home_team']} [{h_line:+.1f}局]"
-                a_sp_text = f"客隊 {row['away_team']} [{a_line:+.1f}局]"
-            else:
-                h_sp_badge = "🔥 讓分" if h_line < 0 else "受讓"
-                a_sp_badge = "🔥 讓分" if a_line < 0 else "受讓"
-                h_sp_text = f"主隊 ({row['home_team'].split()[0]}) {h_line:+.1f}"
-                a_sp_text = f"客隊 ({row['away_team'].split()[0]}) {a_line:+.1f}"
+            unit_label = "局" if is_esports else "分"
 
             # 依賽事生命週期狀態定制外觀
             if m_status == "LIVE":
@@ -476,9 +487,6 @@ with tab_sb:
                     {row['away_team']} <span style="font-size:13px; color:#9CA3AF; font-weight:normal;">(客)</span>
                 </div>
                 """
-                ml_label = "⚡ 場中獨贏 (In-Play ML)"
-                sp_label = "⚡ 場中讓分 (In-Play Spread)"
-                tot_label = f"⚡ 場中大小分 (總分: {row['sb_total_line']})"
             elif m_status == "FINISHED":
                 card_border = "#4B5563"
                 status_html = f'<span style="background:#374151; color:#9CA3AF; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600;">🏁 終場完賽 (Final)</span>'
@@ -489,11 +497,7 @@ with tab_sb:
                     <div style="font-size:13px; color:#10B981; margin-top:2px;">🏆 {row['final_score']}</div>
                 </div>
                 """
-                ml_label = "💰 賽前初盤獨贏 (ML)"
-                sp_label = "🛡️ 賽前初盤讓分 (Spread)"
-                tot_label = f"🎯 大小分 (總分: {row['sb_total_line']})"
             else:
-                # UPCOMING
                 card_border = '#10B981' if fav_is_home else '#3B82F6'
                 status_html = f'<span class="status-badge-blue">⏳ 賽前初盤</span>'
                 period_html = f'<span style="font-size: 12px; color: #9CA3AF; margin-left: 8px;">🕒 開賽時間：{row["start_time"]} ({row["live_period"] if row["live_period"] else "即將開賽"})</span>'
@@ -504,75 +508,96 @@ with tab_sb:
                     {row['away_team']} <span style="font-size:12px; color:#9CA3AF; font-weight:normal;">(客)</span>
                 </div>
                 """
-                ml_label = "💰 賽前獨贏盤 (Head to Head)"
-                sp_label = "🛡️ 賽前讓分盤 (Runline / Spread)"
-                tot_label = f"🎯 大小分 (總分: {row['sb_total_line']})"
 
             with st.container():
                 st.markdown(f"""
-                <div style="background: #111827; border: 1px solid #1F2937; border-left: 5px solid {card_border}; border-radius: 8px; padding: 14px 18px; margin-bottom: 12px;">
+                <div style="background: #111827; border: 1px solid #1F2937; border-left: 5px solid {card_border}; border-radius: 8px; padding: 14px 18px; margin-bottom: 8px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                         <div>
                             <span class="status-badge-blue">[{row['league']}]</span>
                             {status_html}
                             {period_html}
                         </div>
-                        <div style="font-size: 11px; color: #6B7280;">Sportsbet 實時連線</div>
+                        <div style="font-size: 11.5px; color: #9CA3AF;">
+                            🔥 熱門方：<b style="color:{'#10B981' if fav_is_home else '#3B82F6'};">{row['favorite_team'] or (row['home_team'] if fav_is_home else row['away_team'])}</b>
+                        </div>
                     </div>
                     {score_display}
                 </div>
                 """, unsafe_allow_html=True)
                 
-                # 盤口詳細賠率欄
-                col_m1, col_m2, col_m3, col_calc = st.columns([3, 3.3, 2.7, 3])
+                # 取得該場賽事 4 大來源表格數據
+                table_df = db.get_match_all_sources_table(row["match_id"])
                 
-                with col_m1:
-                    st.markdown(f"**{ml_label}**")
-                    st.markdown(f"""
-                    - 主勝 ({row['home_team'].split()[0]}): <b style="color:#10B981; font-size:16px;">{row['sb_home_odds']}</b> {'🔥 熱門' if fav_is_home else ''}
-                    - 客勝 ({row['away_team'].split()[0]}): <b style="color:#3B82F6; font-size:16px;">{row['sb_away_odds']}</b> {'🔥 熱門' if not fav_is_home else ''}
-                    """, unsafe_allow_html=True)
+                # 表格化列出 4 個來源
+                st.markdown(f"##### 📋 4 大來源賠率表格化對照 (Sportsbet • Polymarket • Kalshi • Oddsportal)")
+                
+                # 提取最佳賠率
+                valid_h_ml = [float(v) for v in table_df["主隊獨贏 (Home ML)"] if float(v) > 0]
+                valid_a_ml = [float(v) for v in table_df["客隊獨贏 (Away ML)"] if float(v) > 0]
+                best_h_ml = max(valid_h_ml) if valid_h_ml else 0.0
+                best_a_ml = max(valid_a_ml) if valid_a_ml else 0.0
+                
+                best_h_source = table_df[table_df["主隊獨贏 (Home ML)"] == best_h_ml]["賠率來源 (Source)"].values[0] if valid_h_ml else ""
+                best_a_source = table_df[table_df["客隊獨贏 (Away ML)"] == best_a_ml]["賠率來源 (Source)"].values[0] if valid_a_ml else ""
 
-                with col_m2:
-                    st.markdown(f"**{sp_label}**")
+                # 呈現高雅金融風格 DataFrame
+                display_cols = [
+                    "賠率來源 (Source)", "市場類型", "主隊獨贏 (Home ML)", "客隊獨贏 (Away ML)",
+                    "主隊隱含勝率", "客隊隱含勝率", "主隊讓分盤口", "客隊讓分盤口", "大小分 (Totals)", "抽水率/價差", "連線狀態"
+                ]
+                st.dataframe(
+                    table_df[display_cols].style.format({
+                        "主隊獨贏 (Home ML)": "{:.2f}",
+                        "客隊獨贏 (Away ML)": "{:.2f}"
+                    }),
+                    use_container_width=True,
+                    hide_index=True
+                )
+                
+                # 最佳下注路徑與套利/試算 Bar
+                c_opt1, c_opt2, c_opt3 = st.columns([3.5, 3.5, 3])
+                with c_opt1:
                     st.markdown(f"""
-                    - {h_sp_text}: <b style="color:#10B981; font-size:16px;">{row['sb_h_spread_odds']}</b> <span style="font-size:11px; color:{'#10B981' if h_line < 0 else '#9CA3AF'};">[{h_sp_badge}]</span>
-                    - {a_sp_text}: <b style="color:#3B82F6; font-size:16px;">{row['sb_a_spread_odds']}</b> <span style="font-size:11px; color:{'#3B82F6' if a_line < 0 else '#9CA3AF'};">[{a_sp_badge}]</span>
+                    <div style="background: #131B2A; border: 1px solid #1F2937; border-radius: 6px; padding: 8px 12px; font-size: 12.5px;">
+                        <span style="color:#9CA3AF;">⭐ 主隊最佳賠率：</span><b style="color:#10B981; font-size:14px;">{best_h_ml:.2f}</b> <span style="color:#60A5FA;">({best_h_source})</span><br>
+                        <span style="color:#9CA3AF;">⭐ 客隊最佳賠率：</span><b style="color:#3B82F6; font-size:14px;">{best_a_ml:.2f}</b> <span style="color:#60A5FA;">({best_a_source})</span>
+                    </div>
                     """, unsafe_allow_html=True)
-
-                with col_m3:
-                    st.markdown(f"**{tot_label}**")
-                    st.markdown(f"""
-                    - 大分 (Over): <b style="color:#F59E0B; font-size:16px;">{row['sb_over_odds']}</b>
-                    - 小分 (Under): <b style="color:#F59E0B; font-size:16px;">{row['sb_under_odds']}</b>
-                    """, unsafe_allow_html=True)
-
-                with col_calc:
-                    if m_status == "FINISHED":
-                        st.markdown("**📝 結算回顧**")
-                        st.caption(f"賽事已完賽：{row['final_score']}")
-                        st.caption("請切換至「即將開賽」或「場中」進行下注量化分析。")
+                    
+                with c_opt2:
+                    # 跨市場套利與價差檢驗
+                    if best_h_ml > 1.0 and best_a_ml > 1.0:
+                        combined_margin = (1.0 / best_h_ml) + (1.0 / best_a_ml)
+                        if combined_margin < 1.0:
+                            arb_gain = round(((1.0 / combined_margin) - 1.0) * 100, 2)
+                            arb_html = f'<span style="color:#10B981; font-weight:700;">⚡ 發現無風險套利空間！保證報酬率 +{arb_gain}%</span>'
+                        else:
+                            spread_diff = round((combined_margin - 1.0) * 100, 2)
+                            arb_html = f'<span style="color:#9CA3AF;">全市場最佳組合價差：<b style="color:#F9FAFB;">+{spread_diff}%</b> (極窄點差)</span>'
                     else:
-                        st.markdown("**📝 投注獲利試算 (Bet Calc)**")
-                        stake_test = 100.0
-                        fav_ml_odds = float(row['sb_home_odds'] if fav_is_home else row['sb_away_odds'])
-                        fav_team_label = row['home_team'].split()[0] if fav_is_home else row['away_team'].split()[0]
-                        
-                        # 讓分方（line < 0）
-                        fav_sp_is_home = (h_line < 0)
-                        fav_sp_odds = float(row['sb_h_spread_odds'] if fav_sp_is_home else row['sb_a_spread_odds'])
-                        fav_sp_team_label = row['home_team'].split()[0] if fav_sp_is_home else row['away_team'].split()[0]
-                        fav_sp_line_str = f"{h_line:+.1f}" if fav_sp_is_home else f"{a_line:+.1f}"
-                        
-                        st.caption(f"下注 $100 獨贏 ({fav_team_label}): 可收回 `${round(stake_test * fav_ml_odds, 1)}`")
-                        st.caption(f"下注 $100 讓分 ({fav_sp_team_label} {fav_sp_line_str}): 可收回 `${round(stake_test * fav_sp_odds, 1)}`")
+                        arb_html = '<span style="color:#9CA3AF;">計算中...</span>'
+
+                    st.markdown(f"""
+                    <div style="background: #131B2A; border: 1px solid #1F2937; border-radius: 6px; padding: 8px 12px; font-size: 12.5px;">
+                        <span style="color:#9CA3AF;">💡 跨市場價差狀態：</span><br>
+                        {arb_html}
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                with c_opt3:
+                    stake_test = 100.0
+                    target_ret_h = round(stake_test * best_h_ml, 1) if best_h_ml > 0 else 0
+                    target_ret_a = round(stake_test * best_a_ml, 1) if best_a_ml > 0 else 0
+                    st.caption(f"💵 下注 $100 主隊最佳可得: **${target_ret_h}**")
+                    st.caption(f"💵 下注 $100 客隊最佳可得: **${target_ret_a}**")
 
                 st.divider()
     else:
-        st.info("目前無符合篩選條件之即時賽事。請調整上方篩選條件或點擊「刷新盤口」。")
+        st.info(f"目前在「{league_filter_tab}」中無符合篩選條件之賽事。請切換上方下拉選單或調整狀態。")
 
 # --------------------------------------------------
-# TAB 1: 低賠讓分最佳投資區間分析
+# TAB 2: 低賠讓分最佳投資區間分析
 # --------------------------------------------------
 with tab_fav:
     st.subheader("🎯 熱門強隊讓分 (-1.5) 最佳投資報酬率區間分析")
@@ -754,18 +779,18 @@ with tab_live:
 with tab_ev:
     st.subheader("⚡ 跨平台套利 (Surebet) 與 +EV 價值投注專區")
     
-    st.markdown("#### 1. ⚡ Sportsbet vs 國際市場 無風險套利掃描 (Surebet)")
-    st.caption("利用 Sportsbet 與 Oddsportal 市場共識之價差，同時於雙邊下注鎖定 100% 無風險利潤。")
+    st.markdown("#### 1. ⚡ 4 大來源跨平台無風險套利掃描 (Surebet)")
+    st.caption("全方位比對 澳洲 Sportsbet、Polymarket 預測市場、Kalshi CFTC 合約 與 Oddsportal 全球共識 之跨平台價差，鎖定 100% 無風險利潤。")
     
     bankroll_input = st.number_input("設定套利總本金 ($)", min_value=100.0, max_value=100000.0, value=1000.0, step=100.0)
     arb_results = arbitrage_scanner.scan_arbitrage_opportunities(total_bankroll=bankroll_input)
     
     if arb_results:
-        st.success(f"🎉 發現 **{len(arb_results)}** 個即時無風險套利機會！")
+        st.success(f"🎉 發現 **{len(arb_results)}** 個 4 大來源即時無風險套利機會！")
         st.dataframe(
-            pd.DataFrame(arb_results)[["league", "market", "side_a", "side_b", "roi_pct", "stake_a", "stake_b", "net_profit", "rating"]].rename(
+            pd.DataFrame(arb_results)[["league", "pair", "market", "side_a", "side_b", "roi_pct", "stake_a", "stake_b", "net_profit", "rating"]].rename(
                 columns={
-                    "league": "聯盟", "market": "盤口類型", "side_a": "下注邊 A", "side_b": "下注邊 B",
+                    "league": "聯盟", "pair": "對沖平台組合", "market": "盤口類型", "side_a": "下注邊 A", "side_b": "下注邊 B",
                     "roi_pct": "套利回報率 (%)", "stake_a": "注碼 A", "stake_b": "注碼 B",
                     "net_profit": "預期保證淨利", "rating": "評級"
                 }
@@ -774,12 +799,12 @@ with tab_ev:
             hide_index=True
         )
     else:
-        st.info("目前市場賠率緊密，暫無顯著的無風險套利空間。")
+        st.info("目前 4 大市場賠率緊密，暫無顯著的無風險套利空間。")
 
     st.divider()
 
-    st.markdown("#### 2. 💎 正期望值價值投注 (+EV Scanner & Kelly Criterion)")
-    st.caption("透過市場共識去除抽水 (De-vig) 算出公正真勝率，當 Sportsbet 給出溢價賠率時即具備數學上的長期獲利期望值。")
+    st.markdown("#### 2. 💎 4 大來源正期望值價值投注 (+EV Scanner & Kelly Criterion)")
+    st.caption("透過預測市場與全球博彩共識去除抽水 (De-vig) 算出公正真勝率，尋找 Sportsbet、Polymarket、Kalshi 盤口中的超額 +EV 數學期望值。")
     
     col_ev1, col_ev2 = st.columns(2)
     with col_ev1:
@@ -795,10 +820,10 @@ with tab_ev:
     ev_results = ev_calculator.scan_positive_ev(min_ev_pct=min_ev_threshold, kelly_fraction=kelly_frac)
     if ev_results:
         st.dataframe(
-            pd.DataFrame(ev_results)[["league", "team", "side", "opponent", "sportsbet_odds", "fair_odds", "true_win_rate", "ev_pct", "kelly_stake_pct", "rating"]].rename(
+            pd.DataFrame(ev_results)[["league", "source", "team", "side", "opponent", "odds", "fair_odds", "true_win_rate", "ev_pct", "kelly_stake_pct", "rating"]].rename(
                 columns={
-                    "league": "聯盟", "team": "推薦下注方", "side": "主客", "opponent": "對手",
-                    "sportsbet_odds": "Sportsbet 實時賠率", "fair_odds": "市場公正真賠率",
+                    "league": "聯盟", "source": "推薦平台", "team": "推薦下注方", "side": "主客", "opponent": "對手",
+                    "odds": "實時盤口賠率", "fair_odds": "市場公正真賠率",
                     "true_win_rate": "客觀勝率", "ev_pct": "期望值 (+EV %)",
                     "kelly_stake_pct": "建議 Kelly 注碼比", "rating": "評級"
                 }

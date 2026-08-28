@@ -150,7 +150,7 @@ class DatabaseManager:
             conn.commit()
 
     def get_live_matches_with_odds(self, sport: Optional[str] = None, league: Optional[str] = None) -> pd.DataFrame:
-        """取得包含最新 Sportsbet 賠率與市場對比的即時賽事列表"""
+        """取得包含最新 4 大來源 (Sportsbet, Polymarket, Kalshi, Oddsportal) 賠率的即時賽事列表"""
         self.ensure_schema()
         query = """
         SELECT 
@@ -166,6 +166,7 @@ class DatabaseManager:
             COALESCE(m.live_score_away, 0) AS live_score_away,
             COALESCE(m.live_period, '') AS live_period,
             COALESCE(m.final_score, '') AS final_score,
+            -- 1. 澳洲 Sportsbet
             sb.home_odds AS sb_home_odds,
             sb.away_odds AS sb_away_odds,
             sb.handicap_line AS sb_handicap_line,
@@ -177,15 +178,42 @@ class DatabaseManager:
             sb.over_odds AS sb_over_odds,
             sb.under_odds AS sb_under_odds,
             sb.updated_at AS odds_updated_at,
-            op.home_odds AS op_home_odds,
-            op.away_odds AS op_away_odds,
-            COALESCE(op.home_handicap_line, -1.5) AS op_h_handicap_line,
-            COALESCE(op.away_handicap_line, 1.5) AS op_a_handicap_line,
-            op.handicap_home_odds AS op_h_spread_odds,
-            op.handicap_away_odds AS op_a_spread_odds
+            -- 2. Polymarket
+            poly.home_odds AS poly_home_odds,
+            poly.away_odds AS poly_away_odds,
+            COALESCE(poly.home_handicap_line, -1.5) AS poly_h_handicap_line,
+            COALESCE(poly.away_handicap_line, 1.5) AS poly_a_handicap_line,
+            poly.handicap_home_odds AS poly_h_spread_odds,
+            poly.handicap_away_odds AS poly_a_spread_odds,
+            poly.total_line AS poly_total_line,
+            poly.over_odds AS poly_over_odds,
+            poly.under_odds AS poly_under_odds,
+            -- 3. Kalshi
+            kalshi.home_odds AS kalshi_home_odds,
+            kalshi.away_odds AS kalshi_away_odds,
+            COALESCE(kalshi.home_handicap_line, -1.5) AS kalshi_h_handicap_line,
+            COALESCE(kalshi.away_handicap_line, 1.5) AS kalshi_a_handicap_line,
+            kalshi.handicap_home_odds AS kalshi_h_spread_odds,
+            kalshi.handicap_away_odds AS kalshi_a_spread_odds,
+            kalshi.total_line AS kalshi_total_line,
+            kalshi.over_odds AS kalshi_over_odds,
+            kalshi.under_odds AS kalshi_under_odds,
+            -- 4. Oddsportal
+            COALESCE(op.home_odds, op2.home_odds) AS op_home_odds,
+            COALESCE(op.away_odds, op2.away_odds) AS op_away_odds,
+            COALESCE(op.home_handicap_line, op2.home_handicap_line, -1.5) AS op_h_handicap_line,
+            COALESCE(op.away_handicap_line, op2.away_handicap_line, 1.5) AS op_a_handicap_line,
+            COALESCE(op.handicap_home_odds, op2.handicap_home_odds) AS op_h_spread_odds,
+            COALESCE(op.handicap_away_odds, op2.handicap_away_odds) AS op_a_spread_odds,
+            COALESCE(op.total_line, op2.total_line) AS op_total_line,
+            COALESCE(op.over_odds, op2.over_odds) AS op_over_odds,
+            COALESCE(op.under_odds, op2.under_odds) AS op_under_odds
         FROM matches m
         LEFT JOIN live_odds sb ON m.id = sb.match_id AND sb.bookmaker = 'Sportsbet'
-        LEFT JOIN live_odds op ON m.id = op.match_id AND op.bookmaker = 'OddsportalConsensus'
+        LEFT JOIN live_odds poly ON m.id = poly.match_id AND poly.bookmaker = 'Polymarket'
+        LEFT JOIN live_odds kalshi ON m.id = kalshi.match_id AND kalshi.bookmaker = 'Kalshi'
+        LEFT JOIN live_odds op ON m.id = op.match_id AND op.bookmaker = 'Oddsportal'
+        LEFT JOIN live_odds op2 ON m.id = op2.match_id AND op2.bookmaker = 'OddsportalConsensus'
         WHERE 1=1
         """
         params = []
@@ -201,18 +229,105 @@ class DatabaseManager:
             try:
                 return pd.read_sql_query(query, conn, params=params)
             except Exception as e:
-                # 若發生欄位異常，執行熱修復並重試
                 self.ensure_schema()
                 try:
                     return pd.read_sql_query(query, conn, params=params)
                 except Exception:
-                    # 容錯備援查詢
                     fallback_q = "SELECT m.id AS match_id, m.sport, m.league, m.home_team, m.away_team, m.start_time, m.status, m.favorite_team FROM matches m"
                     df = pd.read_sql_query(fallback_q, conn)
-                    for col in ["live_score_home", "live_score_away", "live_period", "final_score", "sb_home_odds", "sb_away_odds", "sb_h_handicap_line", "sb_a_handicap_line", "sb_h_spread_odds", "sb_a_spread_odds", "sb_total_line", "sb_over_odds", "sb_under_odds", "odds_updated_at", "op_home_odds", "op_away_odds", "op_h_handicap_line", "op_a_handicap_line", "op_h_spread_odds", "op_a_spread_odds"]:
+                    for col in [
+                        "live_score_home", "live_score_away", "live_period", "final_score",
+                        "sb_home_odds", "sb_away_odds", "sb_h_handicap_line", "sb_a_handicap_line", "sb_h_spread_odds", "sb_a_spread_odds", "sb_total_line", "sb_over_odds", "sb_under_odds", "odds_updated_at",
+                        "poly_home_odds", "poly_away_odds", "poly_h_handicap_line", "poly_a_handicap_line", "poly_h_spread_odds", "poly_a_spread_odds", "poly_total_line", "poly_over_odds", "poly_under_odds",
+                        "kalshi_home_odds", "kalshi_away_odds", "kalshi_h_handicap_line", "kalshi_a_handicap_line", "kalshi_h_spread_odds", "kalshi_a_spread_odds", "kalshi_total_line", "kalshi_over_odds", "kalshi_under_odds",
+                        "op_home_odds", "op_away_odds", "op_h_handicap_line", "op_a_handicap_line", "op_h_spread_odds", "op_a_spread_odds", "op_total_line", "op_over_odds", "op_under_odds"
+                    ]:
                         if col not in df.columns:
                             df[col] = ""
                     return df
+
+    def get_match_all_sources_table(self, match_id: str) -> pd.DataFrame:
+        """
+        取得特定賽事的 4 大來源賠率對照表 (Sportsbet, Polymarket, Kalshi, Oddsportal)
+        回傳結構化 DataFrame 用於前端表格化呈現
+        """
+        query = """
+        SELECT bookmaker, market_type, home_odds, away_odds,
+               home_handicap_line, away_handicap_line,
+               handicap_home_odds, handicap_away_odds,
+               total_line, over_odds, under_odds, updated_at
+        FROM live_odds
+        WHERE match_id = ?
+        """
+        sources_meta = [
+            ("Sportsbet", "🇦🇺 澳洲 Sportsbet", "傳統合法博彩"),
+            ("Polymarket", "🟣 Polymarket", "去中心化預測市場"),
+            ("Kalshi", "🟢 Kalshi", "CFTC 合規預測市場"),
+            ("Oddsportal", "🌐 Oddsportal", "全球博彩共識")
+        ]
+        
+        with self.get_connection() as conn:
+            raw_df = pd.read_sql_query(query, conn, params=[match_id])
+
+        records = []
+        for key, display_name, stype in sources_meta:
+            row = raw_df[raw_df["bookmaker"] == key]
+            if row.empty and key == "Oddsportal":
+                row = raw_df[raw_df["bookmaker"] == "OddsportalConsensus"]
+
+            if not row.empty:
+                r = row.iloc[0]
+                h_ml = float(r["home_odds"]) if pd.notna(r["home_odds"]) and r["home_odds"] > 0 else 0.0
+                a_ml = float(r["away_odds"]) if pd.notna(r["away_odds"]) and r["away_odds"] > 0 else 0.0
+                h_line = float(r["home_handicap_line"]) if pd.notna(r["home_handicap_line"]) else -1.5
+                a_line = float(r["away_handicap_line"]) if pd.notna(r["away_handicap_line"]) else 1.5
+                h_sp = float(r["handicap_home_odds"]) if pd.notna(r["handicap_home_odds"]) and r["handicap_home_odds"] > 0 else 0.0
+                a_sp = float(r["handicap_away_odds"]) if pd.notna(r["handicap_away_odds"]) and r["handicap_away_odds"] > 0 else 0.0
+                tot_line = float(r["total_line"]) if pd.notna(r["total_line"]) and r["total_line"] > 0 else 8.5
+                o_odds = float(r["over_odds"]) if pd.notna(r["over_odds"]) and r["over_odds"] > 0 else 0.0
+                u_odds = float(r["under_odds"]) if pd.notna(r["under_odds"]) and r["under_odds"] > 0 else 0.0
+                
+                # 計算抽水率 Overround / Margin
+                vig_pct = 0.0
+                if h_ml > 1.0 and a_ml > 1.0:
+                    vig_pct = round(((1.0 / h_ml) + (1.0 / a_ml) - 1.0) * 100, 2)
+                    
+                # 隱含勝率
+                h_prob = round((1.0 / h_ml) / ((1.0 / h_ml) + (1.0 / a_ml)) * 100, 1) if h_ml > 1.0 and a_ml > 1.0 else 50.0
+                a_prob = round(100.0 - h_prob, 1)
+                
+                records.append({
+                    "來源代碼": key,
+                    "賠率來源 (Source)": display_name,
+                    "市場類型": stype,
+                    "主隊獨贏 (Home ML)": h_ml,
+                    "客隊獨贏 (Away ML)": a_ml,
+                    "主隊隱含勝率": f"{h_prob}%",
+                    "客隊隱含勝率": f"{a_prob}%",
+                    "主隊讓分盤口": f"[{h_line:+.1f}] @ {h_sp}",
+                    "客隊讓分盤口": f"[{a_line:+.1f}] @ {a_sp}",
+                    "大小分 (Totals)": f"{tot_line} (大: {o_odds} / 小: {u_odds})",
+                    "抽水率/價差": f"{vig_pct:+.1f}%" if vig_pct != 0.0 else "--",
+                    "連線狀態": "🟢 即時連線"
+                })
+            else:
+                # 缺漏資料防呆預設
+                records.append({
+                    "來源代碼": key,
+                    "賠率來源 (Source)": display_name,
+                    "市場類型": stype,
+                    "主隊獨贏 (Home ML)": 0.0,
+                    "客隊獨贏 (Away ML)": 0.0,
+                    "主隊隱含勝率": "--",
+                    "客隊隱含勝率": "--",
+                    "主隊讓分盤口": "--",
+                    "客隊讓分盤口": "--",
+                    "大小分 (Totals)": "--",
+                    "抽水率/價差": "--",
+                    "連線狀態": "🟡 撮合中"
+                })
+                
+        return pd.DataFrame(records)
 
     def get_odds_history(self, match_id: str, bookmaker: str = "Sportsbet") -> pd.DataFrame:
         """取得單場比賽的歷史賠率變動數據"""

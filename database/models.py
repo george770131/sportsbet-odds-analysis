@@ -21,11 +21,11 @@ CREATE TABLE IF NOT EXISTS matches (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. 最新即時賠率表 (各博彩公司即時盤口)
+-- 2. 最新即時賠率表 (各博彩公司與預測市場即時盤口)
 CREATE TABLE IF NOT EXISTS live_odds (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     match_id TEXT NOT NULL,
-    bookmaker TEXT NOT NULL,           -- Sportsbet, Pinnacle, Bet365, OddsportalConsensus
+    bookmaker TEXT NOT NULL,           -- Sportsbet, Polymarket, Kalshi, Oddsportal
     market_type TEXT NOT NULL,         -- ML (獨贏), SPREAD (讓分), TOTAL (大小)
     home_odds REAL,                    -- 主隊賠率
     away_odds REAL,                    -- 客隊賠率

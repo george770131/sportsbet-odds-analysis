@@ -5,7 +5,7 @@
 import time
 import threading
 from datetime import datetime
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from apscheduler.schedulers.background import BackgroundScheduler
 import config
 from scrapers.real_live_scraper import real_live_scraper
