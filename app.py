@@ -325,11 +325,11 @@ st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 # ==========================
 # 💼 6 大專業量化分析分頁 (Tabs)
 # ==========================
-tab_sb, tab_fav, tab_live, tab_ev, tab_backtest, tab_db = st.tabs([
+tab_odds, tab_fav, tab_arb_ev, tab_movement, tab_backtest, tab_db = st.tabs([
     "📊 4 大來源即時賠率看板 (Sportsbet / Polymarket / Kalshi / Oddsportal)",
     "🎯 低賠讓分最佳投資區間 (核心分析)",
     "⚡ 跨平台套利 (Surebet) 與 +EV 專區",
-    "📈 盤口水位與跳水異動監控",
+    "📈 4 大來源盤口水位與走勢跳動監控",
     "🧪 策略歷史回測與資產模擬",
     "⚙️ 系統資料庫與同步管理"
 ])
@@ -337,7 +337,7 @@ tab_sb, tab_fav, tab_live, tab_ev, tab_backtest, tab_db = st.tabs([
 # --------------------------------------------------
 # TAB 1: 📊 4 大來源即時賠率看板
 # --------------------------------------------------
-with tab_sb:
+with tab_odds:
     st.subheader("📊 4 大來源即時賠率看板 (Sportsbet • Polymarket • Kalshi • Oddsportal)")
     st.caption("完整整合 🇦🇺 澳洲 Sportsbet、🟣 Polymarket 預測市場、🟢 Kalshi CFTC 合約、🌐 Oddsportal 全球共識，點選下拉選單時即刻自動同步最新盤口！")
 
@@ -664,90 +664,9 @@ with tab_fav:
     st.dataframe(comp_df, use_container_width=True, hide_index=True)
 
 # --------------------------------------------------
-# TAB 2: 即時盤口與變動監控
+# TAB 3: ⚡ 跨平台套利 (Surebet) 與 +EV 專區
 # --------------------------------------------------
-with tab_live:
-    st.subheader("📈 Sportsbet 即時盤口與市場水位監控")
-    
-    # 賠率跳水警報卡片
-    if steam_alerts:
-        st.warning(f"🚨 **偵測到 {len(steam_alerts)} 筆賠率急跌跳水（異常資金大單湧入）！**")
-        alert_df = pd.DataFrame(steam_alerts)
-        st.dataframe(
-            alert_df[["league", "team", "side", "opponent", "open_odds", "current_odds", "drop_pct", "signal"]].rename(
-                columns={
-                    "league": "聯盟", "team": "跳水隊伍", "side": "主客",
-                    "opponent": "對手", "open_odds": "初始賠率", "current_odds": "現盤賠率",
-                    "drop_pct": "下跌幅度 (%)", "signal": "訊號"
-                }
-            ),
-            use_container_width=True,
-            hide_index=True
-        )
-    else:
-        st.info("🟢 目前市場賠率走勢平穩，未出現劇烈單邊跳水。")
-
-    st.subheader("🏟️ 今日即時賽事與盤口列表")
-    live_df = db.get_live_matches_with_odds(sport=selected_sport, league=selected_league)
-    
-    if not live_df.empty:
-        grid_data = []
-        for _, row in live_df.iterrows():
-            fav_is_home = float(row["sb_home_odds"] or 0) <= float(row["sb_away_odds"] or 0)
-            h_line = float(row["sb_h_handicap_line"] if "sb_h_handicap_line" in row and pd.notna(row["sb_h_handicap_line"]) else (-1.5 if fav_is_home else 1.5))
-            a_line = float(row["sb_a_handicap_line"] if "sb_a_handicap_line" in row and pd.notna(row["sb_a_handicap_line"]) else (1.5 if fav_is_home else -1.5))
-            
-            st_badge = "🔴 LIVE 場中" if row["status"] == "LIVE" else ("🏁 完賽" if row["status"] == "FINISHED" else "⏳ 賽前")
-            period_str = row["live_period"] if row["status"] != "FINISHED" else row["final_score"]
-
-            grid_data.append({
-                "賽事狀態": st_badge,
-                "聯盟": row["league"],
-                "開賽時間 (台灣時間)": row["start_time"],
-                "即時戰況/局數": period_str,
-                "對戰組合": f"{row['home_team']} (主) vs {row['away_team']} (客)",
-                "Sportsbet 獨贏": f"主: {row['sb_home_odds']} | 客: {row['sb_away_odds']}",
-                "讓分盤口 (Spread)": f"{row['home_team'].split()[0]} ({h_line:+.1f}): {row['sb_h_spread_odds']} | {row['away_team'].split()[0]} ({a_line:+.1f}): {row['sb_a_spread_odds']}",
-                "大小分 (Totals)": f"{row['sb_total_line']} (大: {row['sb_over_odds']} / 小: {row['sb_under_odds']})",
-                "更新時間 (台灣時間)": row["odds_updated_at"]
-            })
-        st.dataframe(pd.DataFrame(grid_data), use_container_width=True, hide_index=True)
-        
-        # 單場折線圖
-        st.subheader("📈 單場賽事賠率跳動歷史折線圖")
-        selected_match_id = st.selectbox(
-            "選擇比賽檢視走勢",
-            options=live_df["match_id"].tolist(),
-            format_func=lambda m_id: f"[{live_df[live_df['match_id']==m_id]['league'].values[0]}] {live_df[live_df['match_id']==m_id]['home_team'].values[0]} vs {live_df[live_df['match_id']==m_id]['away_team'].values[0]}"
-        )
-        
-        match_history = movement_analyzer.get_odds_movement_chart_data(selected_match_id)
-        if not match_history.empty:
-            fig_hist = go.Figure()
-            fig_hist.add_trace(go.Scatter(x=match_history["timestamp"], y=match_history["home_odds"], mode="lines+markers", name="主隊獨贏賠率 (Home ML)", line=dict(color="#3B82F6", width=2.5)))
-            fig_hist.add_trace(go.Scatter(x=match_history["timestamp"], y=match_history["away_odds"], mode="lines+markers", name="客隊獨贏賠率 (Away ML)", line=dict(color="#F59E0B", width=2.5)))
-            fig_hist.add_trace(go.Scatter(x=match_history["timestamp"], y=match_history["handicap_home_odds"], mode="lines+markers", name="主隊讓分 (-1.5) 賠率", line=dict(color="#10B981", width=2.5, dash="dash")))
-            fig_hist.update_layout(
-                title="Sportsbet 賠率歷史跳動走勢",
-                paper_bgcolor="#111827",
-                plot_bgcolor="#0B0F19",
-                font=dict(color="#F3F4F6", family="Inter"),
-                xaxis_title="時間 (台灣時間 UTC+8)",
-                yaxis_title="賠率 (Decimal)",
-                height=400,
-                yaxis=dict(gridcolor="#1F2937"),
-                xaxis=dict(gridcolor="#1F2937")
-            )
-            st.plotly_chart(fig_hist, use_container_width=True)
-        else:
-            st.info("該場比賽尚無多次跳動歷史。")
-    else:
-        st.info("目前無符合篩選條件之即時賽事。")
-
-# --------------------------------------------------
-# TAB 3: 跨平台套利與 +EV 專區
-# --------------------------------------------------
-with tab_ev:
+with tab_arb_ev:
     st.subheader("⚡ 跨平台套利 (Surebet) 與 +EV 價值投注專區")
     
     st.markdown("#### 1. ⚡ 4 大來源跨平台無風險套利掃描 (Surebet)")
@@ -806,7 +725,91 @@ with tab_ev:
         st.info("目前在此門檻下暫無 +EV 價值投注機會（可將上方門檻滑桿調至 0% 查看所有接近損益平衡的賽事）。")
 
 # --------------------------------------------------
-# TAB 4: 策略歷史回測與模擬器
+# TAB 4: 📈 4 大來源盤口水位與走勢跳動監控
+# --------------------------------------------------
+with tab_movement:
+    st.subheader("📈 4 大來源即時盤口水位與走勢跳動監控")
+    
+    # 賠率跳水警報卡片
+    if steam_alerts:
+        st.warning(f"🚨 **偵測到 {len(steam_alerts)} 筆賠率急跌跳水（異常資金大單湧入）！**")
+        alert_df = pd.DataFrame(steam_alerts)
+        st.dataframe(
+            alert_df[["league", "team", "side", "opponent", "open_odds", "current_odds", "drop_pct", "signal"]].rename(
+                columns={
+                    "league": "聯盟", "team": "跳水隊伍", "side": "主客",
+                    "opponent": "對手", "open_odds": "初始賠率", "current_odds": "現盤賠率",
+                    "drop_pct": "下跌幅度 (%)", "signal": "訊號"
+                }
+            ),
+            use_container_width=True,
+            hide_index=True
+        )
+    else:
+        st.info("🟢 目前市場賠率走勢平穩，未出現劇烈單邊跳水。")
+
+    st.subheader("🏟️ 今日即時賽事與 4 大來源盤口總覽")
+    live_df = db.get_live_matches_with_odds(sport=selected_sport, league=selected_league)
+    
+    if not live_df.empty:
+        grid_data = []
+        for _, row in live_df.iterrows():
+            fav_is_home = float(row["sb_home_odds"] or 0) <= float(row["sb_away_odds"] or 0)
+            h_line = float(row["sb_h_handicap_line"] if "sb_h_handicap_line" in row and pd.notna(row["sb_h_handicap_line"]) else (-1.5 if fav_is_home else 1.5))
+            a_line = float(row["sb_a_handicap_line"] if "sb_a_handicap_line" in row and pd.notna(row["sb_a_handicap_line"]) else (1.5 if fav_is_home else -1.5))
+            
+            st_badge = "🔴 LIVE 場中" if row["status"] == "LIVE" else ("🏁 完賽" if row["status"] == "FINISHED" else "⏳ 賽前")
+            period_str = row["live_period"] if row["status"] != "FINISHED" else row["final_score"]
+
+            grid_data.append({
+                "賽事狀態": st_badge,
+                "聯盟": row["league"],
+                "開賽時間 (台灣時間)": row["start_time"],
+                "即時戰況/局數": period_str,
+                "對戰組合": f"{row['home_team']} (主) vs {row['away_team']} (客)",
+                "🇦🇺 Sportsbet": f"主: {row['sb_home_odds']} | 客: {row['sb_away_odds']}",
+                "🟣 Polymarket": f"主: {row.get('poly_home_odds', '--')} | 客: {row.get('poly_away_odds', '--')}",
+                "🟢 Kalshi": f"主: {row.get('kalshi_home_odds', '--')} | 客: {row.get('kalshi_away_odds', '--')}",
+                "🌐 Oddsportal": f"主: {row.get('op_home_odds', '--')} | 客: {row.get('op_away_odds', '--')}",
+                "讓分盤口 (Spread)": f"{row['home_team'].split()[0]} ({h_line:+.1f}): {row['sb_h_spread_odds']} | {row['away_team'].split()[0]} ({a_line:+.1f}): {row['sb_a_spread_odds']}",
+                "大小分 (Totals)": f"{row['sb_total_line']} (大: {row['sb_over_odds']} / 小: {row['sb_under_odds']})",
+                "更新時間 (台灣時間)": row["odds_updated_at"]
+            })
+        st.dataframe(pd.DataFrame(grid_data), use_container_width=True, hide_index=True)
+        
+        # 單場折線圖
+        st.subheader("📈 單場賽事賠率跳動歷史折線圖")
+        selected_match_id = st.selectbox(
+            "選擇比賽檢視走勢",
+            options=live_df["match_id"].tolist(),
+            format_func=lambda m_id: f"[{live_df[live_df['match_id']==m_id]['league'].values[0]}] {live_df[live_df['match_id']==m_id]['home_team'].values[0]} vs {live_df[live_df['match_id']==m_id]['away_team'].values[0]}"
+        )
+        
+        match_history = movement_analyzer.get_odds_movement_chart_data(selected_match_id)
+        if not match_history.empty:
+            fig_hist = go.Figure()
+            fig_hist.add_trace(go.Scatter(x=match_history["timestamp"], y=match_history["home_odds"], mode="lines+markers", name="主隊獨贏賠率 (Home ML)", line=dict(color="#3B82F6", width=2.5)))
+            fig_hist.add_trace(go.Scatter(x=match_history["timestamp"], y=match_history["away_odds"], mode="lines+markers", name="客隊獨贏賠率 (Away ML)", line=dict(color="#F59E0B", width=2.5)))
+            fig_hist.add_trace(go.Scatter(x=match_history["timestamp"], y=match_history["handicap_home_odds"], mode="lines+markers", name="主隊讓分 (-1.5) 賠率", line=dict(color="#10B981", width=2.5, dash="dash")))
+            fig_hist.update_layout(
+                title="Sportsbet 賠率歷史跳動走勢",
+                paper_bgcolor="#111827",
+                plot_bgcolor="#0B0F19",
+                font=dict(color="#F3F4F6", family="Inter"),
+                xaxis_title="時間 (台灣時間 UTC+8)",
+                yaxis_title="賠率 (Decimal)",
+                height=400,
+                yaxis=dict(gridcolor="#1F2937"),
+                xaxis=dict(gridcolor="#1F2937")
+            )
+            st.plotly_chart(fig_hist, use_container_width=True)
+        else:
+            st.info("該場比賽尚無多次跳動歷史。")
+    else:
+        st.info("目前無符合篩選條件之即時賽事。")
+
+# --------------------------------------------------
+# TAB 5: 🧪 策略歷史回測與模擬器
 # --------------------------------------------------
 with tab_backtest:
     st.subheader("🧪 策略歷史數據回測與資產損益模擬 (Backtesting Engine)")
@@ -828,7 +831,7 @@ with tab_backtest:
             bt_stake_mode = st.radio("注碼管理", ["FLAT", "PERCENT"], format_func=lambda x: "固定注碼 ($100)" if x=="FLAT" else "本金比例 (2% of Bankroll)", horizontal=True)
         with c_b3:
             bt_init_bank = st.number_input("起始本金 ($)", value=10000.0, step=1000.0)
-            bt_ml_range = st.slider("熱門隊獨贏賠率範圍", min_value=1.05, max_value=2.20, value=(1.20, 1.50), step=0.05)
+            bt_ml_range = st.slider("熱門隊獨贏賠率範圍", min_value=1.05, max_value=2.20, value=(1.35, 1.50), step=0.05)
 
     if st.button("🚀 執行歷史策略回測", type="primary", use_container_width=True):
         with st.spinner("正在模擬數千場歷史賽事並計算資產淨值曲線..."):
@@ -875,7 +878,7 @@ with tab_backtest:
             st.plotly_chart(fig_pnl, use_container_width=True)
 
 # --------------------------------------------------
-# TAB 5: 系統與資料庫管理
+# TAB 6: ⚙️ 系統與資料庫管理
 # --------------------------------------------------
 with tab_db:
     st.subheader("⚙️ 系統資料庫維護與同步管理")
@@ -892,14 +895,12 @@ with tab_db:
                 
     with c_m2:
         st.markdown("#### 🌐 即時爬蟲全量同步")
-        st.caption("手動觸發 Sportsbet 與 Oddsportal 即時盤口更新。")
+        st.caption("手動觸發 4 大來源 (Sportsbet, Polymarket, Kalshi, Oddsportal) 即時盤口更新。")
         if st.button("🚀 執行全量爬取同步"):
             with st.spinner("同步中..."):
                 res = sync_service.sync_once()
-                st.success(f"同步完成！已獲取 {res['sportsbet_events']} 場賽事實時數據")
+                st.success(f"同步完成！已獲取 {res['sportsbet_events']} 場賽事之 4 大來源數據")
                 st.rerun()
-
-    st.divider()
 
     st.divider()
     st.subheader("📑 最近 50 場歷史賽事記錄")
