@@ -15,8 +15,9 @@ Write-Host "===================================================" -ForegroundColo
 & $git remote remove origin 2>$null
 & $git remote add origin https://github.com/george770131/sportsbet-odds-analysis.git
 
+$timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 & $git add .
-& $git commit -m "Fix handicap lines and align all timestamps to Taiwan Time (UTC+8)"
+& $git commit -m "Update sports betting quantitative system ($timestamp)"
 & $git branch -M main
 
 Write-Host "Pushing to GitHub..." -ForegroundColor Green
