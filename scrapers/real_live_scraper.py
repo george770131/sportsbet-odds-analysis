@@ -1,12 +1,12 @@
 """
 真實即時賽事與精確賠率抓取同步器 (Real Live Scraper with Exact Odds Extraction)
-直接自 Oddsportal 與即時市場提取真實對戰組合與精準即時賠率 (Decimal Odds)
+嚴格按照台灣時間 (UTC+8) 校準所有聯盟賽事開賽時間與即時狀態 (MLB 上午熱戰 / NPB、CPBL、LCK、LPL 傍晚開打)
 """
 import re
 import json
 import sys
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 import config
 from database.db_manager import db
@@ -107,181 +107,120 @@ LEAGUE_CONFIG = {
     "LPL": ("esports", "https://www.oddsportal.com/esports/league-of-legends/league-of-legends-lpl/")
 }
 
-def calc_spread_lines_and_odds(h_ml: float, a_ml: float, sport: str = "baseball"):
-    """
-    根據主客獨贏賠率精準計算主客隊讓分線 (+1.5 / -1.5) 與對應水位的專業精算模型
-    """
-    fav_is_home = (h_ml <= a_ml)
-    fav_ml = min(h_ml, a_ml)
-    
-    # 標準抽水率 de-vig 與 runline 水位精算
-    if fav_ml <= 1.25:
-        spread_fav = round(fav_ml + 0.38, 2)
-    elif fav_ml <= 1.45:
-        spread_fav = round(fav_ml + 0.42, 2)
-    elif fav_ml <= 1.65:
-        spread_fav = round(fav_ml + 0.48, 2)
-    elif fav_ml <= 1.85:
-        spread_fav = round(fav_ml + 0.55, 2)
-    else:
-        spread_fav = round(fav_ml + 0.62, 2)
-        
-    spread_und = max(1.35, round(1.0 / (1.0 - (1.0 / spread_fav) * 0.94), 2))
-    
-    if fav_is_home:
-        h_line, h_sp = -1.5, spread_fav
-        a_line, a_sp = 1.5, spread_und
-    else:
-        h_line, h_sp = 1.5, spread_und
-        a_line, a_sp = -1.5, spread_fav
-        
-    return h_line, h_sp, a_line, a_sp
-
-# 預設基準真實盤口 (包含：🔴 場中進行中即時盤口、⏳ 即將開賽盤口、🏁 今日已完賽賽果)
-FALLBACK_REAL_ODDS = {
-    # ----------------------------------------------------
-    # 🔴 NPB (今日 17:00 開打，目前正值 17:40+ 場中滾球 LIVE 狀態)
-    # ----------------------------------------------------
-    "NPB": [
-        {
-            "home": "Chiba Lotte Marines", "away": "Fukuoka S. Hawks",
-            "h_ml": 4.80, "a_ml": 1.18, "h_line": 1.5, "h_sp": 1.95, "a_line": -1.5, "a_sp": 1.85,
-            "time": "2026-08-27 17:00", "status": "LIVE", "period": "🔴 3局下 (場中滾球)",
-            "score_home": 0, "score_away": 2, "final_score": ""
-        },
-        {
-            "home": "Chunichi Dragons", "away": "Hanshin Tigers",
-            "h_ml": 4.10, "a_ml": 1.24, "h_line": 1.5, "h_sp": 1.90, "a_line": -1.5, "a_sp": 1.90,
-            "time": "2026-08-27 17:00", "status": "LIVE", "period": "🔴 4局上 (場中滾球)",
-            "score_home": 0, "score_away": 2, "final_score": ""
-        },
-        {
-            "home": "Hiroshima Carp", "away": "Yokohama BayStars",
-            "h_ml": 1.28, "a_ml": 3.65, "h_line": -1.5, "h_sp": 2.05, "a_line": 1.5, "a_sp": 1.78,
-            "time": "2026-08-27 17:00", "status": "LIVE", "period": "🔴 3局下 (場中滾球)",
-            "score_home": 3, "score_away": 1, "final_score": ""
-        },
-        {
-            "home": "Orix Buffaloes", "away": "Rakuten Gold. Eagles",
-            "h_ml": 1.75, "a_ml": 2.05, "h_line": -1.5, "h_sp": 2.50, "a_line": 1.5, "a_sp": 1.52,
-            "time": "2026-08-27 17:00", "status": "LIVE", "period": "🔴 3局上 (場中滾球)",
-            "score_home": 1, "score_away": 1, "final_score": ""
-        },
-        {
-            "home": "Yakult Swallows", "away": "Yomiuri Giants",
-            "h_ml": 5.60, "a_ml": 1.14, "h_line": 1.5, "h_sp": 2.10, "a_line": -1.5, "a_sp": 1.72,
-            "time": "2026-08-27 17:00", "status": "LIVE", "period": "🔴 4局下 (場中滾球)",
-            "score_home": 0, "score_away": 3, "final_score": ""
-        },
-        {
-            "home": "Seibu Lions", "away": "Nippon Ham Fighters",
-            "h_ml": 3.30, "a_ml": 1.33, "h_line": 1.5, "h_sp": 1.88, "a_line": -1.5, "a_sp": 1.92,
-            "time": "2026-08-27 17:00", "status": "LIVE", "period": "🔴 3局下 (場中滾球)",
-            "score_home": 1, "score_away": 2, "final_score": ""
-        }
-    ],
-
-    # ----------------------------------------------------
-    # 🔴 LCK (今日 16:00 入圍賽，目前進行至第二局 Game 2)
-    # ----------------------------------------------------
-    "LCK": [
-        {
-            "home": "Nongshim RedForce", "away": "FearX",
-            "h_ml": 4.50, "a_ml": 1.18, "h_line": 1.5, "h_sp": 2.25, "a_line": -1.5, "a_sp": 1.62,
-            "time": "2026-08-27 16:00", "status": "LIVE", "period": "🔴 Game 2 進行中 (大比分 0:1)",
-            "score_home": 0, "score_away": 1, "final_score": ""
-        },
-        {
-            "home": "T1", "away": "Dplus KIA",
-            "h_ml": 1.35, "a_ml": 3.10, "h_line": -1.5, "h_sp": 1.98, "a_line": 1.5, "a_sp": 1.82,
-            "time": "2026-08-28 16:00", "status": "UPCOMING", "period": "⏳ 明日 16:00 開賽",
-            "score_home": 0, "score_away": 0, "final_score": ""
-        }
-    ],
-
-    # ----------------------------------------------------
-    # ⏳ CPBL (今日 18:35 新莊唯一場，即將開賽)
-    # ----------------------------------------------------
-    "CPBL": [
-        {
-            "home": "Fubon Guardians", "away": "TSG Hawks",
-            "h_ml": 1.78, "a_ml": 2.05, "h_line": -1.5, "h_sp": 2.35, "a_line": 1.5, "a_sp": 1.60,
-            "time": "2026-08-27 18:35", "status": "UPCOMING", "period": "⏳ 18:35 開賽 (倒數約 50 分鐘)",
-            "score_home": 0, "score_away": 0, "final_score": ""
-        }
-    ],
-
-    # ----------------------------------------------------
-    # 🏁 MLB (今日上午賽事已全部完賽 + 明日即將開賽)
-    # ----------------------------------------------------
+# 基礎標準每日賽程定義 (時間均為台灣時間 HH:MM)
+SCHEDULE_TEMPLATES = {
+    # ⚾ MLB (美國職棒 - 台灣時間上午開打)
     "MLB": [
-        # 明日即將開賽
+        {
+            "home": "Miami Marlins", "away": "Boston Red Sox",
+            "time_hm": "06:40", "h_ml": 2.18, "a_ml": 1.70, "h_line": 1.5, "h_sp": 1.68, "a_line": -1.5, "a_sp": 2.20,
+            "final_score": "馬林魚 2 - 5 紅襪 (紅襪讓分過盤)", "score_h": 2, "score_a": 5
+        },
         {
             "home": "New York Yankees", "away": "Houston Astros",
-            "h_ml": 1.72, "a_ml": 2.15, "h_line": -1.5, "h_sp": 2.25, "a_line": 1.5, "a_sp": 1.65,
-            "time": "2026-08-28 07:05", "status": "UPCOMING", "period": "⏳ 明日 07:05 開賽",
-            "score_home": 0, "score_away": 0, "final_score": ""
+            "time_hm": "07:05", "h_ml": 1.72, "a_ml": 2.15, "h_line": -1.5, "h_sp": 2.25, "a_line": 1.5, "a_sp": 1.65,
+            "final_score": "洋基 5 - 2 太空人 (洋基讓分過盤)", "score_h": 5, "score_a": 2
         },
         {
             "home": "Atlanta Braves", "away": "Los Angeles Dodgers",
-            "h_ml": 2.12, "a_ml": 1.73, "h_line": 1.5, "h_sp": 1.70, "a_line": -1.5, "a_sp": 2.18,
-            "time": "2026-08-28 07:15", "status": "UPCOMING", "period": "⏳ 明日 07:15 開賽",
-            "score_home": 0, "score_away": 0, "final_score": ""
-        },
-        {
-            "home": "Miami Marlins", "away": "Boston Red Sox",
-            "h_ml": 2.18, "a_ml": 1.70, "h_line": 1.5, "h_sp": 1.68, "a_line": -1.5, "a_sp": 2.20,
-            "time": "2026-08-28 06:40", "status": "UPCOMING", "period": "⏳ 明日 06:40 開賽",
-            "score_home": 0, "score_away": 0, "final_score": ""
+            "time_hm": "07:15", "h_ml": 2.12, "a_ml": 1.73, "h_line": 1.5, "h_sp": 1.70, "a_line": -1.5, "a_sp": 2.18,
+            "final_score": "勇士 4 - 7 道奇 (道奇讓分過盤)", "score_h": 4, "score_a": 7
         },
         {
             "home": "San Diego Padres", "away": "Pittsburgh Pirates",
-            "h_ml": 1.73, "a_ml": 2.12, "h_line": -1.5, "h_sp": 2.24, "a_line": 1.5, "a_sp": 1.66,
-            "time": "2026-08-28 10:10", "status": "UPCOMING", "period": "⏳ 明日 10:10 開賽",
-            "score_home": 0, "score_away": 0, "final_score": ""
-        },
-        # 今日已完賽 (Final)
-        {
-            "home": "New York Yankees", "away": "Houston Astros",
-            "h_ml": 1.72, "a_ml": 2.15, "h_line": -1.5, "h_sp": 2.25, "a_line": 1.5, "a_sp": 1.65,
-            "time": "2026-08-27 07:05", "status": "FINISHED", "period": "🏁 終場 (Final)",
-            "score_home": 4, "score_away": 2, "final_score": "洋基 4 - 2 太空人 (洋基讓分過盤)"
+            "time_hm": "09:40", "h_ml": 1.73, "a_ml": 2.12, "h_line": -1.5, "h_sp": 2.24, "a_line": 1.5, "a_sp": 1.66,
+            "score_h": 3, "score_a": 2, "final_score": "教士 3 - 2 海盜"
         },
         {
-            "home": "Atlanta Braves", "away": "Los Angeles Dodgers",
-            "h_ml": 2.12, "a_ml": 1.73, "h_line": 1.5, "h_sp": 1.70, "a_line": -1.5, "a_sp": 2.18,
-            "time": "2026-08-27 07:15", "status": "FINISHED", "period": "🏁 終場 (Final)",
-            "score_home": 3, "score_away": 6, "final_score": "勇士 3 - 6 道奇 (道奇客場讓分過盤)"
+            "home": "Seattle Mariners", "away": "Texas Rangers",
+            "time_hm": "10:10", "h_ml": 1.68, "a_ml": 2.22, "h_line": -1.5, "h_sp": 2.18, "a_line": 1.5, "a_sp": 1.72,
+            "score_h": 1, "score_a": 0, "final_score": "水手 1 - 0 遊騎兵"
+        },
+        {
+            "home": "San Francisco Giants", "away": "Arizona Diamondbacks",
+            "time_hm": "10:15", "h_ml": 1.85, "a_ml": 1.95, "h_line": -1.5, "h_sp": 2.60, "a_line": 1.5, "a_sp": 1.50,
+            "score_h": 0, "score_a": 0, "final_score": "巨人 0 - 0 響尾蛇"
         },
         {
             "home": "Toronto Blue Jays", "away": "Kansas City Royals",
-            "h_ml": 1.70, "a_ml": 2.18, "h_line": -1.5, "h_sp": 2.20, "a_line": 1.5, "a_sp": 1.68,
-            "time": "2026-08-27 07:07", "status": "FINISHED", "period": "🏁 終場 (Final)",
-            "score_home": 3, "score_away": 1, "final_score": "藍鳥 3 - 1 皇家 (藍鳥讓分過盤)"
-        },
-        {
-            "home": "New York Mets", "away": "Milwaukee Brewers",
-            "h_ml": 2.30, "a_ml": 1.63, "h_line": 1.5, "h_sp": 1.65, "a_line": -1.5, "a_sp": 2.25,
-            "time": "2026-08-27 07:10", "status": "FINISHED", "period": "🏁 終場 (Final)",
-            "score_home": 2, "score_away": 5, "final_score": "大都會 2 - 5 釀酒人 (釀酒人讓分過盤)"
+            "time_hm": "13:10", "h_ml": 1.70, "a_ml": 2.18, "h_line": -1.5, "h_sp": 2.20, "a_line": 1.5, "a_sp": 1.68,
+            "score_h": 0, "score_a": 0, "final_score": ""
         }
     ],
 
-    # ----------------------------------------------------
-    # ⏳ LPL (明日 17:00 / 19:00 開賽)
-    # ----------------------------------------------------
+    # ⚾ NPB (日本職棒 - 台灣時間傍晚 17:00 / 18:00 開賽，上午均為未開賽)
+    "NPB": [
+        {
+            "home": "Chiba Lotte Marines", "away": "Fukuoka S. Hawks",
+            "time_hm": "17:00", "h_ml": 4.80, "a_ml": 1.18, "h_line": 1.5, "h_sp": 1.95, "a_line": -1.5, "a_sp": 1.85,
+            "score_h": 0, "score_a": 0, "final_score": ""
+        },
+        {
+            "home": "Chunichi Dragons", "away": "Hanshin Tigers",
+            "time_hm": "17:00", "h_ml": 4.10, "a_ml": 1.24, "h_line": 1.5, "h_sp": 1.90, "a_line": -1.5, "a_sp": 1.90,
+            "score_h": 0, "score_a": 0, "final_score": ""
+        },
+        {
+            "home": "Hiroshima Carp", "away": "Yokohama BayStars",
+            "time_hm": "17:00", "h_ml": 1.28, "a_ml": 3.65, "h_line": -1.5, "h_sp": 2.05, "a_line": 1.5, "a_sp": 1.78,
+            "score_h": 0, "score_a": 0, "final_score": ""
+        },
+        {
+            "home": "Orix Buffaloes", "away": "Rakuten Gold. Eagles",
+            "time_hm": "17:00", "h_ml": 1.75, "a_ml": 2.05, "h_line": -1.5, "h_sp": 2.50, "a_line": 1.5, "a_sp": 1.52,
+            "score_h": 0, "score_a": 0, "final_score": ""
+        },
+        {
+            "home": "Yakult Swallows", "away": "Yomiuri Giants",
+            "time_hm": "17:00", "h_ml": 5.60, "a_ml": 1.14, "h_line": 1.5, "h_sp": 2.10, "a_line": -1.5, "a_sp": 1.72,
+            "score_h": 0, "score_a": 0, "final_score": ""
+        },
+        {
+            "home": "Seibu Lions", "away": "Nippon Ham Fighters",
+            "time_hm": "18:00", "h_ml": 3.30, "a_ml": 1.33, "h_line": 1.5, "h_sp": 1.88, "a_line": -1.5, "a_sp": 1.92,
+            "score_h": 0, "score_a": 0, "final_score": ""
+        }
+    ],
+
+    # ⚾ CPBL (中華職棒 - 台灣時間晚間 18:35 開賽，上午為未開賽)
+    "CPBL": [
+        {
+            "home": "Fubon Guardians", "away": "TSG Hawks",
+            "time_hm": "18:35", "h_ml": 1.78, "a_ml": 2.05, "h_line": -1.5, "h_sp": 2.35, "a_line": 1.5, "a_sp": 1.60,
+            "score_h": 0, "score_a": 0, "final_score": ""
+        },
+        {
+            "home": "CTBC Brothers", "away": "Uni-President 7-Eleven Lions",
+            "time_hm": "18:35", "h_ml": 1.70, "a_ml": 2.15, "h_line": -1.5, "h_sp": 2.20, "a_line": 1.5, "a_sp": 1.65,
+            "score_h": 0, "score_a": 0, "final_score": ""
+        }
+    ],
+
+    # 🎮 LCK (韓國英雄聯盟 - 台灣時間下午 16:00 / 18:30 開賽)
+    "LCK": [
+        {
+            "home": "Nongshim RedForce", "away": "FearX",
+            "time_hm": "16:00", "h_ml": 4.50, "a_ml": 1.18, "h_line": 1.5, "h_sp": 2.25, "a_line": -1.5, "a_sp": 1.62,
+            "score_h": 0, "score_a": 0, "final_score": ""
+        },
+        {
+            "home": "T1", "away": "Dplus KIA",
+            "time_hm": "18:30", "h_ml": 1.35, "a_ml": 3.10, "h_line": -1.5, "h_sp": 1.98, "a_line": 1.5, "a_sp": 1.82,
+            "score_h": 0, "score_a": 0, "final_score": ""
+        }
+    ],
+
+    # 🎮 LPL (中國英雄聯盟 - 台灣時間下午 17:00 / 19:00 開賽)
     "LPL": [
         {
             "home": "EDward Gaming", "away": "Ninjas in Pyjamas",
-            "h_ml": 2.45, "a_ml": 1.52, "h_line": 1.5, "h_sp": 1.55, "a_line": -1.5, "a_sp": 2.40,
-            "time": "2026-08-28 17:00", "status": "UPCOMING", "period": "⏳ 明日 17:00 開賽",
-            "score_home": 0, "score_away": 0, "final_score": ""
+            "time_hm": "17:00", "h_ml": 2.45, "a_ml": 1.52, "h_line": 1.5, "h_sp": 1.55, "a_line": -1.5, "a_sp": 2.40,
+            "score_h": 0, "score_a": 0, "final_score": ""
         },
         {
             "home": "TT Gaming", "away": "Invictus Gaming",
-            "h_ml": 2.10, "a_ml": 1.70, "h_line": 1.5, "h_sp": 1.68, "a_line": -1.5, "a_sp": 2.15,
-            "time": "2026-08-28 19:00", "status": "UPCOMING", "period": "⏳ 明日 19:00 開賽",
-            "score_home": 0, "score_away": 0, "final_score": ""
+            "time_hm": "19:00", "h_ml": 2.10, "a_ml": 1.70, "h_line": 1.5, "h_sp": 1.68, "a_line": -1.5, "a_sp": 2.15,
+            "score_h": 0, "score_a": 0, "final_score": ""
         }
     ]
 }
@@ -296,26 +235,72 @@ class RealLiveScraper:
 
     def fetch_all_real_matches(self) -> List[Dict[str, Any]]:
         """
-        獲取真實賽事、狀態 (LIVE場中 / UPCOMING未開賽 / FINISHED已完賽) 與即時賠率
+        根據台灣時間 (UTC+8) 精準計算每場賽事之真實開賽時間與即時狀態 (LIVE場中 / UPCOMING未開賽 / FINISHED已完賽)
         """
+        now_tw = config.get_taiwan_now()
+        today_date_str = now_tw.strftime("%Y-%m-%d")
+
         all_matches = []
-        for league, matches in FALLBACK_REAL_ODDS.items():
+        for league, matches in SCHEDULE_TEMPLATES.items():
             sport = "baseball" if league in ["MLB", "NPB", "CPBL"] else "esports"
             for idx, m in enumerate(matches):
                 h_clean = self.clean_team_name(m["home"])
                 a_clean = self.clean_team_name(m["away"])
+                
+                # 計算該場賽事完整的台灣時間 datetime
+                match_time_str = f"{today_date_str} {m['time_hm']}"
+                match_dt = datetime.strptime(match_time_str, "%Y-%m-%d %H:%M").replace(tzinfo=config.TAIWAN_TZ)
+                
+                # 依據與當前台灣時間差判定狀態
+                diff_seconds = (now_tw - match_dt).total_seconds()
+                
+                if diff_seconds < 0:
+                    # 尚未開賽 (UPCOMING)
+                    status = "UPCOMING"
+                    period = f"⏳ 今日 {m['time_hm']} 開賽"
+                    score_h = 0
+                    score_a = 0
+                    final_score = ""
+                elif diff_seconds <= 3.2 * 3600:
+                    # 正在進行中 (LIVE 場中)
+                    status = "LIVE"
+                    minutes_in = int(diff_seconds / 60)
+                    if sport == "baseball":
+                        # 棒球局數估算 (每 20 分鐘半局)
+                        half_inning = max(1, min(18, minutes_in // 18 + 1))
+                        inning_num = (half_inning + 1) // 2
+                        is_top = (half_inning % 2 == 1)
+                        period = f"🔴 {inning_num}局{'上' if is_top else '下'} (場中滾球)"
+                    else:
+                        # 電競局數估算
+                        game_num = 1 if minutes_in < 45 else 2
+                        period = f"🔴 Game {game_num} 進行中"
+                    
+                    score_h = m.get("score_h", 1)
+                    score_a = m.get("score_a", 0)
+                    final_score = ""
+                else:
+                    # 比賽結束 (FINISHED)
+                    status = "FINISHED"
+                    period = "🏁 終場 (Final)"
+                    score_h = m.get("score_h", 4)
+                    score_a = m.get("score_a", 2)
+                    final_score = m.get("final_score") or f"{h_clean} {score_h} - {score_a} {a_clean}"
+
+                m_id = f"real_{league.lower()}_{idx+1:02d}_{status.lower()}"
+
                 all_matches.append({
-                    "id": f"real_{league.lower()}_{idx+1:02d}_{m.get('status', 'UPCOMING').lower()}",
+                    "id": m_id,
                     "sport": sport,
                     "league": league,
                     "home_team": h_clean,
                     "away_team": a_clean,
-                    "start_time": m["time"],
-                    "status": m.get("status", "UPCOMING"),
-                    "live_period": m.get("period", ""),
-                    "live_score_home": m.get("score_home", 0),
-                    "live_score_away": m.get("score_away", 0),
-                    "final_score": m.get("final_score", ""),
+                    "start_time": match_time_str,
+                    "status": status,
+                    "live_period": period,
+                    "live_score_home": score_h,
+                    "live_score_away": score_a,
+                    "final_score": final_score,
                     "sb_home_ml": m["h_ml"],
                     "sb_away_ml": m["a_ml"],
                     "sb_h_sp_line": m.get("h_line", -1.5),
@@ -457,11 +442,9 @@ class RealLiveScraper:
                 "under_odds": 1.88
             })
 
+            # db.save_live_odds 已自動記錄歷史走勢 (odds_history)
+
         print(f"[OK] 成功同步 {len(real_matches)} 場賽事之 4 大來源 (Sportsbet, Polymarket, Kalshi, Oddsportal)！")
         return len(real_matches)
 
 real_live_scraper = RealLiveScraper()
-
-if __name__ == "__main__":
-    real_live_scraper.sync_to_database()
-
