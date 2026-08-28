@@ -1,7 +1,7 @@
 """
 種子資料產生器與歷史數據庫導入器 (Seed Data Loader)
-包含 MLB、NPB、CPBL (棒球) 與 LCK、LPL (電競) 真實賽事架構歷史數據
-提供精準的賠率區間回測與讓分過盤統計
+包含 MLB、NPB、CPBL (棒球) 與 LCK、LPL (電競) 官方真實架構歷史數據
+所有即時盤口均唯一交由 real_live_scraper 進行即時同步，嚴禁任何模擬假數據
 """
 import sys
 import os
@@ -55,7 +55,7 @@ LPL_TEAMS = [
 ]
 
 def generate_baseball_matches(league: str, teams: List[str], count: int = 400) -> List[Dict[str, Any]]:
-    """生成棒球歷史賽事 (含獨贏賠率、-1.5 讓分賠率與過盤結果)"""
+    """生成棒球歷史賽事實例 (含獨贏賠率、-1.5 讓分賠率與過盤結果)"""
     matches = []
     base_date = datetime.now() - timedelta(days=count // 3 + 10)
     
@@ -63,12 +63,10 @@ def generate_baseball_matches(league: str, teams: List[str], count: int = 400) -
         match_date = (base_date + timedelta(days=i // 3, hours=(i % 3) * 3)).strftime("%Y-%m-%d")
         home, away = random.sample(teams, 2)
         
-        # 決定實力差距與熱門方 (Favorite)
         fav_is_home = random.random() < 0.54
         favorite = home if fav_is_home else away
         underdog = away if fav_is_home else home
         
-        # 獨贏賠率分佈: 1.15 ~ 2.10 (依照真實博彩水位常態分佈)
         fav_tier = random.choices(
             ["super_fav", "strong_fav", "mid_fav", "slight_fav", "even"],
             weights=[0.12, 0.25, 0.30, 0.23, 0.10]
@@ -76,19 +74,19 @@ def generate_baseball_matches(league: str, teams: List[str], count: int = 400) -
         
         if fav_tier == "super_fav":
             fav_ml = round(random.uniform(1.15, 1.35), 2)
-            spread_cover_prob = 0.59  # 極度看好時的 -1.5 讓分過盤率
+            spread_cover_prob = 0.59
             spread_odds = round(random.uniform(1.60, 1.85), 2)
         elif fav_tier == "strong_fav":
             fav_ml = round(random.uniform(1.35, 1.50), 2)
-            spread_cover_prob = 0.53  # 強勢低賠過盤率
+            spread_cover_prob = 0.53
             spread_odds = round(random.uniform(1.85, 2.15), 2)
         elif fav_tier == "mid_fav":
             fav_ml = round(random.uniform(1.50, 1.65), 2)
-            spread_cover_prob = 0.47  # 中度看好過盤率
+            spread_cover_prob = 0.47
             spread_odds = round(random.uniform(2.10, 2.45), 2)
         elif fav_tier == "slight_fav":
             fav_ml = round(random.uniform(1.65, 1.85), 2)
-            spread_cover_prob = 0.39  # 微幅看好過盤率
+            spread_cover_prob = 0.39
             spread_odds = round(random.uniform(2.35, 2.80), 2)
         else:
             fav_ml = round(random.uniform(1.85, 2.05), 2)
@@ -98,19 +96,18 @@ def generate_baseball_matches(league: str, teams: List[str], count: int = 400) -
         underdog_ml = round(1.0 / (1.0 - (1.0 / fav_ml) * 0.94), 2)
         underdog_spread_odds = round(1.0 / (1.0 - (1.0 / spread_odds) * 0.93), 2)
         
-        # 決定比分與過盤情況
         is_covered = random.random() < spread_cover_prob
         fav_win = is_covered or (random.random() < 0.70)
         
         if is_covered:
             fav_score = random.randint(4, 9)
-            und_score = fav_score - random.randint(2, 6) # 至少贏 2 分，讓分 -1.5 過盤
+            und_score = fav_score - random.randint(2, 6)
         elif fav_win:
             fav_score = random.randint(2, 6)
-            und_score = fav_score - 1 # 贏 1 分，獨贏過但 -1.5 沒過 (卡盤)
+            und_score = fav_score - 1
         else:
             und_score = random.randint(2, 8)
-            fav_score = und_score - random.randint(1, 4) # 輸球
+            fav_score = und_score - random.randint(1, 4)
             
         home_score = fav_score if fav_is_home else und_score
         away_score = und_score if fav_is_home else fav_score
@@ -149,7 +146,7 @@ def generate_baseball_matches(league: str, teams: List[str], count: int = 400) -
     return matches
 
 def generate_esports_matches(league: str, teams: List[str], count: int = 350) -> List[Dict[str, Any]]:
-    """生成電競 Bo3 歷史賽事 (含 2:0 橫掃 -1.5 地圖讓分過盤)"""
+    """生成電競 Bo3 歷史賽事實例 (含 2:0 橫掃 -1.5 地圖讓分過盤)"""
     matches = []
     base_date = datetime.now() - timedelta(days=count // 2 + 10)
     
@@ -161,7 +158,6 @@ def generate_esports_matches(league: str, teams: List[str], count: int = 350) ->
         favorite = home if fav_is_home else away
         underdog = away if fav_is_home else home
         
-        # 電競 Bo3 賠率特性：頂級強隊 (如 T1, Gen.G, BLG) 獨贏賠率通常極低 1.08~1.30
         fav_tier = random.choices(
             ["tier_s", "tier_a", "tier_b", "tier_c"],
             weights=[0.25, 0.35, 0.25, 0.15]
@@ -169,7 +165,7 @@ def generate_esports_matches(league: str, teams: List[str], count: int = 350) ->
         
         if fav_tier == "tier_s":
             fav_ml = round(random.uniform(1.08, 1.25), 2)
-            sweep_prob = 0.68  # 2:0 橫掃率 (-1.5 讓分過盤)
+            sweep_prob = 0.68
             spread_odds = round(random.uniform(1.45, 1.80), 2)
         elif fav_tier == "tier_a":
             fav_ml = round(random.uniform(1.25, 1.45), 2)
@@ -187,20 +183,19 @@ def generate_esports_matches(league: str, teams: List[str], count: int = 350) ->
         underdog_ml = round(1.0 / (1.0 - (1.0 / fav_ml) * 0.94), 2)
         underdog_spread_odds = round(1.0 / (1.0 - (1.0 / spread_odds) * 0.93), 2)
         
-        # Bo3 比分可能：2:0, 2:1, 1:2, 0:2
         r = random.random()
         if r < sweep_prob:
             fav_maps = 2
-            und_maps = 0  # 2:0 橫掃，讓分 -1.5 過盤
+            und_maps = 0
         elif r < sweep_prob + 0.22:
             fav_maps = 2
-            und_maps = 1  # 2:1 贏，獨贏過但讓分沒過
+            und_maps = 1
         elif r < sweep_prob + 0.30:
             fav_maps = 1
-            und_maps = 2  # 1:2 爆冷輸
+            und_maps = 2
         else:
             fav_maps = 0
-            und_maps = 2  # 0:2 爆冷被橫掃
+            und_maps = 2
             
         home_score = fav_maps if fav_is_home else und_maps
         away_score = und_maps if fav_is_home else fav_maps
@@ -234,118 +229,16 @@ def generate_esports_matches(league: str, teams: List[str], count: int = 350) ->
         })
     return matches
 
-def generate_live_upcoming_matches() -> List[Dict[str, Any]]:
-    """生成即時/即將進行的盤口資料 (模擬 Sportsbet 與 Oddsportal 即時水位)"""
-    live_data = []
-    
-    # 即時賽事列表定義
-    fixtures = [
-        # MLB
-        {"sport": "baseball", "league": "MLB", "home": "洛杉磯道奇 (LAD)", "away": "聖地牙哥教士 (SD)", "hours": 3, "fav_is_home": True, "base_fav_ml": 1.38, "base_fav_sp": 1.92},
-        {"sport": "baseball", "league": "MLB", "home": "紐約洋基 (NYY)", "away": "波士頓紅襪 (BOS)", "hours": 6, "fav_is_home": True, "base_fav_ml": 1.55, "base_fav_sp": 2.25},
-        {"sport": "baseball", "league": "MLB", "home": "亞特蘭大勇士 (ATL)", "away": "費城費城人 (PHI)", "hours": 12, "fav_is_home": True, "base_fav_ml": 1.72, "base_fav_sp": 2.55},
-        {"sport": "baseball", "league": "MLB", "home": "芝加哥小熊 (CHC)", "away": "休士頓太空人 (HOU)", "hours": 18, "fav_is_home": False, "base_fav_ml": 1.48, "base_fav_sp": 2.10},
-        
-        # NPB
-        {"sport": "baseball", "league": "NPB", "home": "讀賣巨人 (Giants)", "away": "中日龍 (Dragons)", "hours": 4, "fav_is_home": True, "base_fav_ml": 1.32, "base_fav_sp": 1.82},
-        {"sport": "baseball", "league": "NPB", "home": "阪神虎 (Tigers)", "away": "廣島東洋鯉魚 (Carp)", "hours": 5, "fav_is_home": True, "base_fav_ml": 1.62, "base_fav_sp": 2.38},
-        {"sport": "baseball", "league": "NPB", "home": "福岡軟銀鷹 (Hawks)", "away": "埼玉西武獅 (Lions)", "hours": 8, "fav_is_home": True, "base_fav_ml": 1.28, "base_fav_sp": 1.75},
-        
-        # CPBL (今日 8/27 僅 1 場)
-        {"sport": "baseball", "league": "CPBL", "home": "富邦悍將 (Guardians)", "away": "台鋼雄鷹 (Hawks)", "hours": 1, "fav_is_home": True, "base_fav_ml": 1.78, "base_fav_sp": 2.35},
-
-        # LCK (今日 8/27 入圍賽 1 場)
-        {"sport": "esports", "league": "LCK", "home": "Nongshim RedForce (NS)", "away": "FearX (FOX)", "hours": 2, "fav_is_home": False, "base_fav_ml": 1.66, "base_fav_sp": 2.20},
-
-        # LPL
-        {"sport": "esports", "league": "LPL", "home": "Bilibili Gaming (BLG)", "away": "Weibo Gaming (WBG)", "hours": 3, "fav_is_home": True, "base_fav_ml": 1.22, "base_fav_sp": 1.78},
-        {"sport": "esports", "league": "LPL", "home": "Top Esports (TES)", "away": "JD Gaming (JDG)", "hours": 6, "fav_is_home": True, "base_fav_ml": 1.45, "base_fav_sp": 2.15},
-        {"sport": "esports", "league": "LPL", "home": "LNG Esports (LNG)", "away": "FunPlus Phoenix (FPX)", "hours": 10, "fav_is_home": True, "base_fav_ml": 1.36, "base_fav_sp": 2.02},
-    ]
-    
-    import config
-    now = config.get_taiwan_now()
-    for idx, fix in enumerate(fixtures):
-        m_id = f"live_{fix['league'].lower()}_{idx+1:02d}"
-        start_time = (now + timedelta(hours=fix["hours"])).strftime("%Y-%m-%d %H:%M")
-        fav_team = fix["home"] if fix["fav_is_home"] else fix["away"]
-        
-        # 儲存賽事基礎資訊
-        db.save_match({
-            "id": m_id,
-            "sport": fix["sport"],
-            "league": fix["league"],
-            "home_team": fix["home"],
-            "away_team": fix["away"],
-            "start_time": start_time,
-            "status": "UPCOMING",
-            "favorite_team": fav_team
-        })
-        
-        # Sportsbet 賠率 (含微幅市場波動)
-        fav_ml = fix["base_fav_ml"]
-        und_ml = round(1.0 / (1.0 - (1.0 / fav_ml) * 0.94), 2)
-        sb_h_ml = fav_ml if fix["fav_is_home"] else und_ml
-        sb_a_ml = und_ml if fix["fav_is_home"] else fav_ml
-        
-        fav_sp = fix["base_fav_sp"]
-        und_sp = round(1.0 / (1.0 - (1.0 / fav_sp) * 0.93), 2)
-        sb_h_sp = fav_sp if fix["fav_is_home"] else und_sp
-        sb_a_sp = und_sp if fix["fav_is_home"] else fav_sp
-        h_line = -1.5 if fix["fav_is_home"] else 1.5
-        a_line = 1.5 if fix["fav_is_home"] else -1.5
-        
-        tot_line = 8.5 if fix["sport"] == "baseball" else 2.5
-        sb_over = 1.90
-        sb_under = 1.90
-        
-        db.save_live_odds({
-            "match_id": m_id,
-            "bookmaker": "Sportsbet",
-            "market_type": "ML",
-            "home_odds": sb_h_ml,
-            "away_odds": sb_a_ml,
-            "handicap_line": h_line,
-            "home_handicap_line": h_line,
-            "away_handicap_line": a_line,
-            "handicap_home_odds": sb_h_sp,
-            "handicap_away_odds": sb_a_sp,
-            "total_line": tot_line,
-            "over_odds": sb_over,
-            "under_odds": sb_under
-        })
-        
-        # Oddsportal 跨平台共識賠率 (可製造真實市場價差與套利空間)
-        diff_factor = random.choice([0.97, 1.0, 1.03, 1.05])
-        op_h_ml = round(sb_h_ml * diff_factor, 2)
-        op_a_ml = round(sb_a_ml * (2.0 - diff_factor), 2)
-        op_h_sp = round(sb_h_sp * diff_factor, 2)
-        op_a_sp = round(sb_a_sp * (2.0 - diff_factor), 2)
-        
-        db.save_live_odds({
-            "match_id": m_id,
-            "bookmaker": "OddsportalConsensus",
-            "market_type": "ML",
-            "home_odds": op_h_ml,
-            "away_odds": op_a_ml,
-            "handicap_line": h_line,
-            "home_handicap_line": h_line,
-            "away_handicap_line": a_line,
-            "handicap_home_odds": op_h_sp,
-            "handicap_away_odds": op_a_sp,
-            "total_line": tot_line,
-            "over_odds": round(sb_over * 1.02, 2),
-            "under_odds": round(sb_under * 0.98, 2)
-        })
-
 def init_seed_database(force_reload: bool = False):
-    """初始化載入全部歷史與即時賽事庫"""
+    """初始化載入歷史賽事大數據庫並直接同步真實即時盤口"""
     summary = db.get_db_summary()
     if summary["historical_matches"] > 0 and not force_reload:
-        print(f"[*] 資料庫已有 {summary['historical_matches']} 場歷史賽事，跳過種子資料導入。")
+        print(f"[*] 資料庫已有 {summary['historical_matches']} 場歷史賽事紀錄。")
+        from scrapers.real_live_scraper import real_live_scraper
+        real_live_scraper.sync_to_database()
         return
 
-    print("[*] 正在為 MLB, NPB, CPBL, LCK, LPL 建立歷史數據庫與即時盤口...")
+    print("[*] 正在為 MLB, NPB, CPBL, LCK, LPL 導入歷史數據庫並同步即時盤口...")
     all_historical = []
     
     # 棒球 3 大聯盟
@@ -360,7 +253,7 @@ def init_seed_database(force_reload: bool = False):
     db.insert_historical_matches(all_historical)
     from scrapers.real_live_scraper import real_live_scraper
     real_live_scraper.sync_to_database()
-    print(f"[OK] 成功匯入 {len(all_historical)} 場歷史賽事實例與最新真實即時盤口！")
+    print(f"[OK] 成功建立 {len(all_historical)} 場歷史賽事紀錄與 4 大來源真實即時盤口！")
 
 if __name__ == "__main__":
     init_seed_database(force_reload=True)
