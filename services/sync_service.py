@@ -19,7 +19,7 @@ class SyncService:
         self.source_mode: str = "4大來源即時同步引擎 (Sportsbet/Polymarket/Kalshi/Oddsportal)"
         self._lock = threading.Lock()
 
-    def sync_once(self) -> Dict[str, Any]:
+    def sync_once(self, api_key: Optional[str] = None, *args, **kwargs) -> Dict[str, Any]:
         """執行一次即時資料同步 (完整同步 4 大來源：Sportsbet, Polymarket, Kalshi, Oddsportal)"""
         with self._lock:
             start_t = time.time()
@@ -35,7 +35,8 @@ class SyncService:
                 "sportsbet_events": synced_count,
                 "oddsportal_events": synced_count,
                 "duration_seconds": duration,
-                "mode": self.source_mode
+                "mode": self.source_mode,
+                "api_message": "已成功同步 4 大來源最新即時盤口數據"
             }
 
     def start_background_scheduler(self, interval_seconds: int = config.AUTO_SYNC_INTERVAL_SECONDS):
