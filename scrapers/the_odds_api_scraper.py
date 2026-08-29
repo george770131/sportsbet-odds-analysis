@@ -12,7 +12,7 @@ from database.db_manager import db
 
 class TheOddsAPIScraper:
     def __init__(self):
-        self.base_url = config.THE_ODDS_API_BASE_URL
+        self.base_url = getattr(config, "THE_ODDS_API_BASE_URL", "https://api.the-odds-api.com/v4")
         self.requests_remaining: int = 500
         self.requests_used: int = 0
         self.last_sync_time: str = "尚未連線"
@@ -230,7 +230,14 @@ class TheOddsAPIScraper:
         total_synced = 0
         all_parsed = []
 
-        for league, sport_key in config.ODDS_API_SPORT_MAP.items():
+        sport_map = getattr(config, "ODDS_API_SPORT_MAP", {
+            "MLB": "baseball_mlb",
+            "NPB": "baseball_npb",
+            "CPBL": "baseball_cpbl",
+            "LCK": "esports_lol_lck",
+            "LPL": "esports_lol_lpl"
+        })
+        for league, sport_key in sport_map.items():
             sport = "baseball" if "baseball" in sport_key else "esports"
             raw_events = self.fetch_sport_odds(api_key, sport_key)
             for ev in raw_events:

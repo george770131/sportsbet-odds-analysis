@@ -64,3 +64,16 @@ DEFAULT_HEADERS = {
 # 預設同步頻率 (秒)
 AUTO_SYNC_INTERVAL_SECONDS = 180
 
+# The Odds API 官方體育數據源設定
+THE_ODDS_API_BASE_URL = "https://api.the-odds-api.com/v4"
+THE_ODDS_API_KEY = os.getenv("THE_ODDS_API_KEY", "")
+
+# 聯盟對應 The Odds API Sport Key
+ODDS_API_SPORT_MAP = {
+    "MLB": "baseball_mlb",
+    "NPB": "baseball_npb",
+    "CPBL": "baseball_cpbl",
+    "LCK": "esports_lol_lck",
+    "LPL": "esports_lol_lpl"
+}
+
