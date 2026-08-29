@@ -223,7 +223,7 @@ class DatabaseManager:
         if league:
             query += " AND m.league = ?"
             params.append(league)
-        query += " ORDER BY m.start_time ASC"
+        query += " ORDER BY CASE WHEN m.status = 'LIVE' THEN 1 WHEN m.status = 'UPCOMING' THEN 2 ELSE 3 END, m.start_time ASC"
 
         with self.get_connection() as conn:
             try:
