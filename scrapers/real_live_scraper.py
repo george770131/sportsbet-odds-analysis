@@ -10,6 +10,7 @@ from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Any, Optional
 import config
 from database.db_manager import db
+from scrapers.cpbl_oddsportal_scraper import cpbl_oddsportal_scraper
 
 # 隊伍中英文對照表
 TEAM_NAME_MAP = {
@@ -304,10 +305,23 @@ class RealLiveScraper:
     def fetch_all_real_matches(self) -> List[Dict[str, Any]]:
         """
         獲取 100% 精準對齊台灣時間與真實賽況之賽事資料
+        中華職棒 (CPBL) 100% 嚴格從 https://www.oddsportal.com/baseball/taiwan/cpbl/ 抓取
         """
         all_matches = []
+        
+        # 1. 抓取 CPBL (嚴格來自 Oddsportal 官方網頁)
+        try:
+            cpbl_live_matches = cpbl_oddsportal_scraper.fetch_cpbl_matches()
+            if cpbl_live_matches:
+                all_matches.extend(cpbl_live_matches)
+        except Exception as e:
+            print(f"[CPBL Live Sync Error]: {e}")
+
+        # 2. 其它聯盟賽事
         for league, matches in CALIBRATED_REAL_GAMES.items():
-            sport = "baseball" if league in ["MLB", "NPB", "CPBL"] else "esports"
+            if league == "CPBL":
+                continue # CPBL 已由 Oddsportal 專屬爬蟲動態抓取
+            sport = "baseball" if league in ["MLB", "NPB"] else "esports"
             for idx, m in enumerate(matches):
                 h_clean = self.clean_team_name(m["home"])
                 a_clean = self.clean_team_name(m["away"])
