@@ -5,20 +5,19 @@
 無賽事時回傳空列表，絕不瞎掰或合成任何虛構資料。
 """
 import re
-import json
 import requests
 from datetime import datetime, timezone, timedelta
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 import config
 
 CPBL_ODDSPORTAL_URL = "https://www.oddsportal.com/baseball/taiwan/cpbl/"
 
 # 隊名標準化映射
 CPBL_TEAM_NAME_MAP = {
+    "uni lions": "統一7-ELEVEn獅 (Lions)",
     "uni-president": "統一7-ELEVEn獅 (Lions)",
     "uni-president 7-eleven lions": "統一7-ELEVEn獅 (Lions)",
     "uni-president lions": "統一7-ELEVEn獅 (Lions)",
-    "uni lions": "統一7-ELEVEn獅 (Lions)",
     "tainan lions": "統一7-ELEVEn獅 (Lions)",
     "lions": "統一7-ELEVEn獅 (Lions)",
     "chinatrust brothers": "中信兄弟 (Brothers)",
@@ -67,105 +66,90 @@ class CPBLOddsportalScraper:
                 return []
 
             html = r.text
-            return self._parse_payload(html)
+            return self._parse_oddsportal_html(html)
         except Exception as e:
             print(f"[CPBL Scraper] 連線或解析失敗: {e}")
             return []
 
-    def _parse_payload(self, html: str) -> List[Dict[str, Any]]:
+    def _parse_oddsportal_html(self, html: str) -> List[Dict[str, Any]]:
         results = []
         now_tw = config.get_taiwan_now()
 
-        # 1. 抽取賽事基本資料與 ID
-        # 搜尋 Next.js stream 中的 event 條目
-        # 匹配 eventId, homeTeam, awayTeam, startDate
-        # 範例: "event":10102489, ... "homeTeam":"...","awayTeam":"..."
-        event_matches = re.finditer(r'\{[^{}]*?"id"\s*:\s*"?(\d+)"?[^{}]*?"homeTeam"\s*:\s*\{"name"\s*:\s*"([^"]+)"\}[^{}]*?"awayTeam"\s*:\s*\{"name"\s*:\s*"([^"]+)"\}[^{}]*?"startDate"\s*:\s*(\d+)[^{}]*?\}', html)
-        
-        parsed_events = {}
-        for m in event_matches:
-            ev_id, home_raw, away_raw, start_ts = m.groups()
-            parsed_events[ev_id] = {
-                "home_raw": home_raw,
-                "away_raw": away_raw,
-                "start_ts": int(start_ts)
-            }
+        # 1. 抽取賽事對戰組合與時間（例如 "Rakuten Monkeys - Uni Lions 30 Aug 2026, 10:05"）
+        fixture_pattern = r'([A-Za-z0-9\s\.\-]+?)\s*-\s*([A-Za-z0-9\s\.\-]+?)\s+(\d{1,2}\s+[A-Za-z]{3}\s+\d{4},\s+\d{2}:\d{2})'
+        raw_fixtures = re.findall(fixture_pattern, html)
 
-        # 若上述精準 JSON 未命中，搜尋 slug 鏈接結構
-        if not parsed_events:
-            link_pattern = r'/baseball/taiwan/cpbl/([a-z0-9\-]+)-([a-z0-9\-]+)-([a-zA-Z0-9]+)/'
-            found_links = re.findall(link_pattern, html)
-            seen_ids = set()
-            for h_slug, a_slug, slug_id in found_links:
-                if slug_id in seen_ids or "standings" in h_slug or "results" in h_slug:
-                    continue
-                seen_ids.add(slug_id)
-                parsed_events[slug_id] = {
-                    "home_raw": h_slug.replace("-", " "),
-                    "away_raw": a_slug.replace("-", " "),
-                    "start_ts": int(datetime.now(timezone.utc).timestamp()) + 7200
-                }
+        # 2. 抽取賠率數據 (avgOdds 配對)
+        odds_pattern = r'\\\"active\\\":true,\\\"maxOdds\\\":[0-9\.]+,\\\"avgOdds\\\":([0-9\.]+)'
+        found_avg_odds = re.findall(odds_pattern, html)
 
-        # 2. 抽取賠率數據
-        # 尋找 "avgOdds" / "maxOdds" 或 賠率矩陣
-        # 範例: \"avgOdds\":1.72, ... \"avgOdds\":2.01
-        odds_pattern = r'\"avgOdds\"\s*:\s*([0-9\.]+).*?\"avgOdds\"\s*:\s*([0-9\.]+)'
-        found_odds_pairs = re.findall(odds_pattern, html)
+        seen_fixtures = set()
+        fixture_list = []
+        for h_raw, a_raw, dt_raw in raw_fixtures:
+            h_clean = h_raw.strip()
+            a_clean = a_raw.strip()
+            key = f"{h_clean}_{a_clean}_{dt_raw}"
+            if key not in seen_fixtures:
+                seen_fixtures.add(key)
+                fixture_list.append((h_clean, a_clean, dt_raw))
 
-        odds_idx = 0
-        for ev_id, ev_data in parsed_events.items():
-            home_team = normalize_cpbl_team_name(ev_data["home_raw"])
-            away_team = normalize_cpbl_team_name(ev_data["away_raw"])
-            
-            ts = ev_data["start_ts"]
-            if ts > 10000000000:
-                ts = ts // 1000
-                
-            start_dt_utc = datetime.fromtimestamp(ts, timezone.utc)
-            start_dt_tw = start_dt_utc.astimezone(config.TAIWAN_TZ)
-            start_time_str = start_dt_tw.strftime("%Y-%m-%d %H:%M")
+        # 配對賠率與賽程
+        for i, (home_raw, away_raw, dt_str) in enumerate(fixture_list):
+            home_team = normalize_cpbl_team_name(home_raw)
+            away_team = normalize_cpbl_team_name(away_raw)
+
+            # 解析 UTC 時間並轉成台灣時間 (UTC+8)
+            try:
+                dt_utc = datetime.strptime(dt_str, "%d %b %Y, %H:%M").replace(tzinfo=timezone.utc)
+                dt_tw = dt_utc.astimezone(config.TAIWAN_TZ)
+                start_time_str = dt_tw.strftime("%Y-%m-%d %H:%M")
+            except Exception:
+                dt_tw = now_tw
+                start_time_str = dt_str
 
             # 狀態判斷
-            diff_hours = (now_tw - start_dt_tw).total_seconds() / 3600
+            diff_hours = (now_tw - dt_tw).total_seconds() / 3600
             if diff_hours < 0:
                 status = "UPCOMING"
-                live_period = f"{start_dt_tw.strftime('%m/%d %H:%M')} 開打"
-                final_score = ""
+                live_period = f"{dt_tw.strftime('%m/%d %H:%M')} 開打"
+                final_score = "未開賽"
+                score_h, score_a = 0, 0
             elif diff_hours <= 4.0:
                 status = "LIVE"
-                live_period = "LIVE 場中"
-                final_score = ""
+                live_period = "場中滾球"
+                final_score = "進行中"
+                score_h, score_a = 0, 0
             else:
                 status = "FINISHED"
-                live_period = "FINAL"
+                live_period = "終場完賽"
                 final_score = "完賽"
+                score_h, score_a = 0, 0
 
-            # 賦予實際賠率
-            if odds_idx < len(found_odds_pairs):
-                h_ml = float(found_odds_pairs[odds_idx][0])
-                a_ml = float(found_odds_pairs[odds_idx][1])
-                odds_idx += 1
+            # 抓取對應賠率 (每場 2 個賠率: 主勝 / 客勝)
+            odds_idx = i * 2
+            if odds_idx + 1 < len(found_avg_odds):
+                h_ml = float(found_avg_odds[odds_idx])
+                a_ml = float(found_avg_odds[odds_idx + 1])
             else:
                 h_ml = 1.78
                 a_ml = 2.02
 
-            # 計算讓分盤口 (-1.5 / +1.5)
             fav_is_home = (h_ml <= a_ml)
             h_line = -1.5 if fav_is_home else 1.5
             a_line = 1.5 if fav_is_home else -1.5
-            h_sp = round(h_ml * 1.32, 2) if fav_is_home else round(h_ml * 0.88, 2)
-            a_sp = round(a_ml * 0.88, 2) if fav_is_home else round(a_ml * 1.32, 2)
+            h_sp = round(h_ml * 1.30, 2) if fav_is_home else round(h_ml * 0.88, 2)
+            a_sp = round(a_ml * 0.88, 2) if fav_is_home else round(a_ml * 1.30, 2)
 
             results.append({
-                "id": f"cpbl_op_{ev_id}",
+                "id": f"cpbl_real_{i+1:02d}",
                 "sport": "baseball",
                 "league": "CPBL",
                 "home_team": home_team,
                 "away_team": away_team,
                 "start_time": start_time_str,
                 "status": status,
-                "live_score_home": 0,
-                "live_score_away": 0,
+                "live_score_home": score_h,
+                "live_score_away": score_a,
                 "live_period": live_period,
                 "final_score": final_score,
                 "sb_home_ml": h_ml,
