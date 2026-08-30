@@ -59,6 +59,7 @@ class CPBLOddsportalScraper:
             "Referer": "https://www.oddsportal.com/",
             "Cache-Control": "no-cache"
         }
+        self.cached_matches: List[Dict[str, Any]] = []
 
     def fetch_cpbl_matches(self) -> List[Dict[str, Any]]:
         """
@@ -66,39 +67,39 @@ class CPBLOddsportalScraper:
         """
         try:
             r = requests.get(self.url, headers=self.headers, timeout=12)
-            if r.status_code != 200:
-                print(f"[CPBL Scraper] Oddsportal HTTP 狀態碼: {r.status_code}")
-                return []
-
-            html = r.text
-            return self._parse_oddsportal_html(html)
+            if r.status_code == 200:
+                parsed = self._parse_oddsportal_html(r.text)
+                if parsed:
+                    self.cached_matches = parsed
+                    return parsed
+            print(f"[CPBL Scraper] 請求狀態碼: {r.status_code}")
         except Exception as e:
-            print(f"[CPBL Scraper] 連線或解析失敗: {e}")
-            return []
+            print(f"[CPBL Scraper] 網絡連線異常: {e}")
+
+        # 若遠端網絡短暫超時或被節流，回退至記憶體快取以確保頁面不空白
+        return self.cached_matches
 
     def _parse_oddsportal_html(self, html: str) -> List[Dict[str, Any]]:
         results = []
         now_tw = config.get_taiwan_now()
 
-        # 1. 抽取所有 match JSON 物件 (以 encodeEventId 與 URL 為索引)
-        event_pattern = r'(?i)\\\"encodeEventId\\\":\\\"([a-zA-Z0-9]{8})\\\".*?\\\"url\\\":\\\"/baseball/h2h/([a-z0-9\-]+)-[a-zA-Z0-9]+/([a-z0-9\-]+)-[a-zA-Z0-9]+/#([a-zA-Z0-9]{8})\\\".*?\\\"colClassName\\\":\\\"datet t(\d+)-'
-        found_events = re.findall(event_pattern, html)
+        # 1. 抽取所有 match JSON 物件 (以 encodeEventId 與 URL 為索引，啟用 re.DOTALL)
+        event_pattern = r'\\\"encodeEventId\\\":\\\"([a-zA-Z0-9]{8})\\\".*?\\\"url\\\":\\\"/baseball/h2h/([a-z0-9\-]+)-[a-zA-Z0-9]+/([a-z0-9\-]+)-[a-zA-Z0-9]+/#([a-zA-Z0-9]{8})\\\".*?\\\"colClassName\\\":\\\"datet t(\d+)-'
+        found_events = re.findall(event_pattern, html, flags=re.DOTALL | re.IGNORECASE)
 
-        # 備用對戰文本正則
+        # 備用對戰文本正則 (DOM Link)
         if not found_events:
-            event_pattern_alt = r'([A-Za-z0-9\s\.\-]+?)\s*-\s*([A-Za-z0-9\s\.\-]+?)\s+(\d{1,2}\s+[A-Za-z]{3}\s+\d{4},\s+\d{2}:\d{2})'
-            alt_events = re.findall(event_pattern_alt, html)
+            event_pattern_alt = r'/baseball/h2h/([a-z0-9\-]+)-[a-zA-Z0-9]+/([a-z0-9\-]+)-[a-zA-Z0-9]+/#([a-zA-Z0-9]{8})'
+            alt_events = re.findall(event_pattern_alt, html, flags=re.DOTALL | re.IGNORECASE)
             seen_alt = set()
-            for h_raw, a_raw, dt_raw in alt_events:
-                key = f"{h_raw.strip()}_{a_raw.strip()}_{dt_raw}"
-                if key not in seen_alt:
-                    seen_alt.add(key)
-                    # 建立合成結構
-                    found_events.append(("alt_event", h_raw.strip().replace(" ", "-"), a_raw.strip().replace(" ", "-"), "alt_event", "1788077100"))
+            for h_slug, a_slug, hash_id in alt_events:
+                if hash_id not in seen_alt:
+                    seen_alt.add(hash_id)
+                    found_events.append((hash_id, h_slug, a_slug, hash_id, "1788077100"))
 
         seen_hashes = set()
         for hash_id, home_slug, away_slug, _, ts_str in found_events:
-            if hash_id in seen_hashes and hash_id != "alt_event":
+            if hash_id in seen_hashes:
                 continue
             seen_hashes.add(hash_id)
 
@@ -133,16 +134,14 @@ class CPBLOddsportalScraper:
                 final_score = "完賽"
                 score_h, score_a = 0, 0
 
-            # 2. 尋找該 Hash 對應的精確賠率
-            # 格式: \"vZUtcB2n\":{\"event\":10102491,\"odds\":[{\"active\":true,\"maxOdds\":1.76,\"avgOdds\":1.72 ... \"avgOdds\":2.01
-            odds_pattern = r'(?i)\\\"' + re.escape(hash_id) + r'\\\":\{\\\"event\\\":\d+,\\\"odds\\\":\[\{\\\"active\\\":true,\\\"maxOdds\\\":[0-9\.]+,\\\"avgOdds\\\":([0-9\.]+).*?\\\"active\\\":true,\\\"maxOdds\\\":[0-9\.]+,\\\"avgOdds\\\":([0-9\.]+)'
-            om = re.search(odds_pattern, html)
+            # 2. 尋找該 Hash 對應的精確賠率 (啟用 re.DOTALL)
+            odds_pattern = r'\\\"' + re.escape(hash_id) + r'\\\":\{.*?\\\"avgOdds\\\":([0-9\.]+).*?\\\"avgOdds\\\":([0-9\.]+)'
+            om = re.search(odds_pattern, html, flags=re.DOTALL | re.IGNORECASE)
 
             if om:
                 h_ml = float(om.group(1))
                 a_ml = float(om.group(2))
             else:
-                # 備用賠率抽取
                 h_ml = 1.72
                 a_ml = 2.01
 
