@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+dist/
+*.egg-info/
+
+# Screenshots & Runtime Artifacts
+*.png
+sportsbet_test_result.png
+sportsbet_betslip_preview.png
+sportsbet_receipt.png
+pending_bet.json
+
+# Environment & Local Secrets
+.env
+.DS_Store

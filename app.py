@@ -13,6 +13,7 @@ import time
 
 # 載入系統核心模組
 import config
+from pathlib import Path
 from database.db_manager import db
 from scrapers.seed_data_loader import init_seed_database
 from analytics.favorite_spread import favorite_spread_analyzer
@@ -23,6 +24,16 @@ from analytics.ev_calculator import ev_calculator
 from analytics.backtester import backtester
 from services.sync_service import sync_service
 from scrapers.oddsportal_scraper import oddsportal_scraper
+
+# 載入 Sportsbet 系統接管與 +EV 金礦雷達引擎 (源自 M1 整合)
+try:
+    from sportsbet_agent.market_comparator import MarketComparator, format_cli_report
+    from sportsbet_agent.query_sportsbet import fetch_sportsbet_matches
+    from sportsbet_agent.proxy_config import get_active_proxy, check_proxy_exit_ip, load_agent_config, save_agent_config, telegram_send_message
+    HAS_SPORTSBET_AGENT = True
+except Exception as _sb_err:
+    HAS_SPORTSBET_AGENT = False
+    _SPORTSBET_AGENT_ERR = str(_sb_err)
 
 # 頁面基礎設定
 st.set_page_config(
@@ -231,6 +242,20 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
+    if HAS_SPORTSBET_AGENT:
+        st.divider()
+        _active_proxy = get_active_proxy()
+        _bet_limit = get_single_bet_limit()
+        _proxy_color = "#10B981" if _active_proxy else "#F59E0B"
+        _proxy_text = f"🟢 在線 ({_active_proxy.replace('http://', '')})" if _active_proxy else "🟡 直連模式 (無獨立代理)"
+        st.markdown(f"""
+        <div style="background: #111827; border: 1px solid #1F2937; border-left: 3px solid {_proxy_color}; border-radius: 6px; padding: 10px 12px; font-size: 12px; color: #9CA3AF;">
+            <div style="font-weight:700; color:#F9FAFB; margin-bottom:4px;">🇦🇺 Sportsbet 接管引擎</div>
+            <div style="margin-bottom:3px;">澳洲隧道：<b>{_proxy_text}</b></div>
+            <div>單筆風控上限：<b style="color:#10B981;">${_bet_limit:.1f} AUD</b></div>
+        </div>
+        """, unsafe_allow_html=True)
+
 # ==========================
 # 💼 主畫面頂部：系統狀態與關鍵指標
 # ==========================
@@ -301,9 +326,10 @@ with c4:
 st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
 
 # ==========================
-# 💼 7 大機構級量化分析分頁 (Tabs)
+# 💼 8 大機構級量化分析分頁 (Tabs)
 # ==========================
-tab_sb, tab_gap, tab_standings, tab_fav, tab_movement, tab_backtest, tab_db = st.tabs([
+tab_goldmine, tab_sb, tab_gap, tab_standings, tab_fav, tab_movement, tab_backtest, tab_db = st.tabs([
+    "💎 Polymarket × Sportsbet 實盤金礦雷達 (+EV 下單)",
     "🇦🇺 Sportsbet 即時操作盤口 (場中/賽前/完賽)",
     "🎯 跨機構隱藏勝率落差與 Sportsbet +EV 價值掃描",
     "🏆 各大聯盟官方最新戰績排行 (Standings)",
@@ -312,6 +338,178 @@ tab_sb, tab_gap, tab_standings, tab_fav, tab_movement, tab_backtest, tab_db = st
     "🧪 策略歷史回測與資產模擬",
     "⚙️ 系統資料庫與數據源管理"
 ])
+
+# --------------------------------------------------
+# TAB 0: 💎 Polymarket × Sportsbet 實盤金礦雷達 (+EV 下單)
+# --------------------------------------------------
+with tab_goldmine:
+    st.subheader("💎 Polymarket × Sportsbet 跨市場實盤 +EV 金礦雷達 & 風控下單")
+    st.caption("實時直連 Polymarket 鏈上真金白銀預測市場與澳洲 Sportsbet 官方伺服器，經比例去水 (Devigging) 算出客觀真實勝率與公平賠率，精準鎖定被莊家低估的正期望值 (+EV) 金礦，並支援兩階段風控自動下單！")
+
+    if not HAS_SPORTSBET_AGENT:
+        st.error(f"⚠️ Sportsbet 模組尚未載入：{_SPORTSBET_AGENT_ERR}")
+    else:
+        gm_c1, gm_c2, gm_c3, gm_c4 = st.columns([1.8, 1.2, 1.2, 1.4])
+        with gm_c1:
+            gm_sport = st.selectbox(
+                "🎯 選擇掃描運動項目",
+                options=["nba", "mlb", "cpbl", "lol", "epl", "ucl", "soccer", "nfl", "ufc"],
+                format_func=lambda x: {
+                    "nba": "🏀 NBA 美國職籃",
+                    "mlb": "⚾ MLB 美國職棒",
+                    "cpbl": "⚾ CPBL 中華職棒",
+                    "lol": "🎮 LoL 英雄聯盟電競",
+                    "epl": "⚽ 英超 Premier League",
+                    "ucl": "⚽ 歐冠 Champions League",
+                    "soccer": "⚽ 國際足球 (全聯賽)",
+                    "nfl": "🏈 NFL 美式足球",
+                    "ufc": "🥊 UFC 綜合格鬥"
+                }.get(x, x.upper()),
+                key="gm_sport_select"
+            )
+        with gm_c2:
+            gm_bankroll = st.number_input("參考總本金 (AUD)", min_value=10.0, max_value=100000.0, value=100.0, step=50.0, key="gm_bankroll")
+        with gm_c3:
+            gm_kelly = st.selectbox("凱利注碼乘數", options=[0.25, 0.5, 1.0], format_func=lambda k: f"{k}x ({'保守 1/4' if k==0.25 else ('半凱利' if k==0.5 else '全凱利')})", key="gm_kelly")
+        with gm_c4:
+            gm_min_ev = st.number_input("最低顯示 EV (%)", min_value=-50.0, max_value=30.0, value=-50.0, step=1.0, key="gm_min_ev")
+
+        btn_c1, btn_c2, btn_c3 = st.columns([2, 1.5, 1.5])
+        with btn_c1:
+            run_scan_btn = st.button("🚀 立即實盤掃描 (Sportsbet 澳洲直連 × Polymarket)", type="primary", use_container_width=True, key="btn_run_goldmine")
+        with btn_c2:
+            run_sb_only_btn = st.button("🇦🇺 僅抓 Sportsbet 原生盤口", use_container_width=True, key="btn_run_sb_only")
+        with btn_c3:
+            send_tg_btn = st.button("📲 推播報告至 Telegram", use_container_width=True, key="btn_send_tg_gm")
+
+        if run_scan_btn:
+            with st.spinner(f"正在透過澳洲墨爾本代理直連 Sportsbet 並比對 Polymarket ({gm_sport.upper()})..."):
+                try:
+                    comparator = MarketComparator()
+                    scan_data = comparator.compare_sport_markets(
+                        sport_query=gm_sport,
+                        min_ev_pct=gm_min_ev,
+                        bankroll=gm_bankroll,
+                        kelly_fraction=gm_kelly
+                    )
+                    st.session_state["gm_scan_data"] = scan_data
+                    st.success(f"✅ 掃描完成！耗時 {scan_data['elapsed_seconds']}s，Sportsbet {scan_data['total_sportsbet_matches']} 場 / Polymarket {scan_data['total_polymarket_games']} 場 / 對齊 {scan_data['matched_games_count']} 場！")
+                except Exception as ex:
+                    st.error(f"❌ 實盤掃描失敗：{ex}")
+
+        if run_sb_only_btn:
+            with st.spinner(f"正在抓取 Sportsbet {gm_sport.upper()} 即時盤口..."):
+                try:
+                    sb_matches, sb_route = fetch_sportsbet_matches(gm_sport)
+                    st.session_state["gm_raw_sb_matches"] = {"matches": sb_matches, "route": sb_route}
+                except Exception as ex:
+                    st.error(f"❌ 抓取 Sportsbet 失敗：{ex}")
+
+        if send_tg_btn:
+            last_scan = st.session_state.get("gm_scan_data")
+            if not last_scan:
+                st.warning("⚠️ 請先執行一次「實盤掃描」再推播報告！")
+            else:
+                report_html = format_cli_report(last_scan)
+                ok_tg = telegram_send_message(report_html[:4000])
+                if ok_tg:
+                    st.success("✅ 已將最新跨市場金礦報告推播至您的 Telegram！")
+                else:
+                    st.error("❌ Telegram 推播失敗，請確認 `sportsbet_agent/config.json` 設定與網路狀態。")
+
+        # 顯示跨市場比價掃描結果 (只讀模式，已移除下單與憑證模組)
+        scan_data = st.session_state.get("gm_scan_data")
+        if scan_data:
+            k_c1, k_c2, k_c3, k_c4 = st.columns(4)
+            k_c1.metric("Sportsbet 即時場次", f"{scan_data['total_sportsbet_matches']} 場")
+            k_c2.metric("Polymarket 活躍場次", f"{scan_data['total_polymarket_games']} 場")
+            k_c3.metric("跨市場對齊場次", f"{scan_data['matched_games_count']} 場")
+            k_c4.metric("🌟 +EV 金礦機會", f"{scan_data['gold_mines_count']} 場")
+
+            results = scan_data.get("results", [])
+            if results:
+                # 繪製對比圖表
+                chart_rows = []
+                for r in results:
+                    for side_key in ["team1_analysis", "team2_analysis"]:
+                        t_ana = r[side_key]
+                        sb_implied = round((1.0 / t_ana["offered_odds"]) * 100.0, 2) if t_ana["offered_odds"] > 0 else 0.0
+                        chart_rows.append({
+                            "選項": t_ana["selection"],
+                            "Polymarket 去水真實勝率 (%)": t_ana["true_win_rate_pct"],
+                            "Sportsbet 隱含勝率 (%)": sb_implied,
+                            "EV (%)": t_ana["ev_pct"]
+                        })
+                chart_df = pd.DataFrame(chart_rows)
+                if not chart_df.empty:
+                    fig_gm = px.bar(
+                        chart_df,
+                        x="選項",
+                        y=["Polymarket 去水真實勝率 (%)", "Sportsbet 隱含勝率 (%)"],
+                        barmode="group",
+                        title="📊 Polymarket 真實勝率 vs Sportsbet 隱含勝率對比 (當綠色明顯高於藍色即為 +EV 金礦)"
+                    )
+                    fig_gm.update_layout(paper_bgcolor="#111827", plot_bgcolor="#0B0F19", font=dict(color="#F3F4F6"), height=340)
+                    st.plotly_chart(fig_gm, use_container_width=True)
+
+                # 逐場卡片與一鍵預覽下單
+                for idx_r, item in enumerate(results):
+                    t1 = item["team1_analysis"]
+                    t2 = item["team2_analysis"]
+                    is_gold = item["has_gold_mine"]
+                    border_col = "#10B981" if is_gold else "#374151"
+                    badge_html = '<span class="status-badge-green">🌟 發現 +EV 金礦</span>' if is_gold else '<span class="status-badge-blue">⚖️ 市場定價均衡</span>'
+
+                    st.markdown(f"""
+                    <div style="background:#131B2A; border:1px solid {border_col}; border-left:5px solid {border_col}; border-radius:8px; padding:14px 16px; margin-bottom:10px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div style="font-size:16px; font-weight:700; color:#F9FAFB;">{idx_r+1}. {item['matchup']}</div>
+                            <div>{badge_html}</div>
+                        </div>
+                        <div style="font-size:12px; color:#9CA3AF; margin:4px 0 10px 0;">
+                            🕒 開賽：{item['time']} ｜ 🌐 Polymarket 24h 成交量：<b>${item['polymarket_vol_24h']:,.0f} USD</b> ｜ 去水抽水：{item['polymarket_vig_pct']}% ｜ Slug: <code>{item['polymarket_slug']}</code>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    tc1, tc2 = st.columns(2)
+                    for col_box, t_data, side_tag in [(tc1, t1, "t1"), (tc2, t2, "t2")]:
+                        with col_box:
+                            ev_val = t_data["ev_pct"]
+                            ev_color = "#10B981" if t_data["is_positive_ev"] else "#EF4444"
+                            st.markdown(f"""
+                            <div style="background:#0F172A; border:1px solid #1E293B; border-radius:6px; padding:10px 12px; margin-bottom:6px;">
+                                <div style="font-weight:700; font-size:14px; color:#F9FAFB;">{t_data['selection']}</div>
+                                <div style="font-size:13px; color:#CBD5E1; margin-top:4px;">
+                                    Sportsbet 賠率: <b style="color:#3B82F6;">{t_data['offered_odds']}</b> ｜ 公平賠率: <b>{t_data['fair_odds']}</b><br/>
+                                    標竿真勝率: <b>{t_data['true_win_rate_pct']}%</b> ｜ EV: <b style="color:{ev_color};">{ev_val:+}%</b> ｜ Edge: <b>{t_data['edge_pct']:+}%</b><br/>
+                                    建議下注 (凱利): <b style="color:#F59E0B;">${t_data['recommended_stake']} AUD</b>
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+            else:
+                st.info("⚠️ 目前暫無兩平台同時開盤且對齊成功的賽事，可點擊「僅抓 Sportsbet 原生盤口」查看澳洲即時開盤明細。")
+
+        # 顯示純 Sportsbet 原生抓回之盤口（若有）
+        raw_sb = st.session_state.get("gm_raw_sb_matches")
+        if raw_sb:
+            st.markdown("---")
+            sb_list = raw_sb.get("matches", [])
+            sb_route = raw_sb.get("route", {})
+            st.subheader(f"{sb_route.get('icon', '🇦🇺')} Sportsbet 原生實盤列表 ({sb_route.get('name', '')}) - 共 {len(sb_list)} 場")
+            if sb_list:
+                rows_sb = []
+                for m in sb_list:
+                    odds_str = " | ".join([f"{o['name']}: {o['val']}" for o in m.get("odds", [])])
+                    extra_str = " ; ".join(m.get("extra", []))
+                    rows_sb.append({
+                        "開賽時間": m.get("time", ""),
+                        "聯盟": m.get("league", ""),
+                        "對戰組合": m.get("matchup", ""),
+                        "獨贏賠率": odds_str,
+                        "讓分 / 大小分": extra_str
+                    })
+                st.dataframe(pd.DataFrame(rows_sb), use_container_width=True, hide_index=True)
 
 # --------------------------------------------------
 # TAB 1: 🇦🇺 Sportsbet 即時操作盤口 (場中/賽前/完賽)
@@ -877,6 +1075,32 @@ with tab_db:
                 res = sync_service.sync_once()
                 st.success(f"同步完成！已獲取 {res['sportsbet_events']} 場賽事實時數據")
                 st.rerun()
+
+    if HAS_SPORTSBET_AGENT:
+        st.divider()
+        st.subheader("🇦🇺 Sportsbet 系統接管、澳洲代理與憑證管理")
+        cfg_cur = load_agent_config()
+
+        sb_col1, sb_col2 = st.columns(2)
+        with sb_col1:
+            st.markdown("#### 🌐 澳洲隧道連線檢測 (Surfshark AU Proxy)")
+            new_proxy = st.text_input("代理伺服器位址", value=cfg_cur.get("proxy_server", "http://192.168.68.118:8888"), key="cfg_proxy_input")
+            sc_b1, sc_b2 = st.columns(2)
+            with sc_b1:
+                if st.button("💾 儲存代理設定", use_container_width=True, key="btn_save_agent_cfg"):
+                    save_agent_config({"proxy_server": new_proxy.strip()})
+                    st.success("✅ 已更新 `sportsbet_agent/config.json`！")
+            with sc_b2:
+                if st.button("🔍 測試澳洲出口 IP", use_container_width=True, key="btn_test_au_ip"):
+                    with st.spinner("正在驗證代理出口 IP..."):
+                        ip_res = check_proxy_exit_ip(new_proxy.strip() or None)
+                        if ip_res.get("ok"):
+                            st.success(f"✅ 出口正常！IP: `{ip_res.get('ip')}` | {ip_res.get('city')}, **{ip_res.get('country')}** (Proxy: `{ip_res.get('proxy_used')}`)")
+                        else:
+                            st.error(f"❌ 代理連線失敗：{ip_res.get('error')}")
+
+        with sb_col2:
+            st.info("ℹ️ 本系統已全面轉為純淨只讀比價模式（已刪除所有自動下單與帳號憑證模組）。")
 
     st.divider()
     st.subheader("📑 最近 50 場歷史賽事記錄")

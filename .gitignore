@@ -7,3 +7,10 @@ __pycache__/
 env/
 venv/
 *.log
+*.exe
+.DS_Store
+sportsbet_agent/config.json
+sportsbet_agent/*.png
+data/*.db
+data/*.db-wal
+data/*.db-shm

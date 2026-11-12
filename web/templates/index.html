@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="theme-color" content="#FFFFFF" />
+  <link rel="manifest" href="/manifest.json" />
+  <title>7盤定量比價雷達｜+EV 機會即時追蹤</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Segoe UI", Roboto, sans-serif;
+      background-color: #F8FAFC;
+      color: #0F172A;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .tabular-nums { font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 pb-24" x-data="radarApp()" x-init="init()">
+
+  <!-- 頂部固定導覽與快速篩選 (Bright / Light Mode) -->
+  <header class="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm">
+    <div class="max-w-3xl mx-auto px-3.5 pt-3 pb-2.5">
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 text-white font-bold text-sm shadow-sm shrink-0">7P</span>
+          <div class="min-w-0">
+            <h1 class="text-base font-bold tracking-tight text-slate-900 truncate">7 盤定量比價雷達</h1>
+            <div class="flex items-center gap-1.5 text-[11px] text-slate-500">
+              <span class="inline-block h-2 w-2 rounded-full" :class="isSyncing ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'"></span>
+              <span x-text="isSyncing ? '背景採集中...' : ('更新於 ' + (meta.last_sync_at?.value || '尚未同步'))"></span>
+            </div>
+          </div>
+        </div>
+
+        <button
+          @click="triggerSync()"
+          :disabled="isSyncing"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition active:scale-95 shrink-0"
+          :class="isSyncing ? 'bg-slate-100 text-slate-400 border-slate-200' : 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'">
+          <svg class="w-3.5 h-3.5" :class="isSyncing ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          <span x-text="isSyncing ? '採集中' : '立即同步'"></span>
+        </button>
+      </div>
+
+      <!-- 橫向滑動篩選藥丸 (單手快速點擊) -->
+      <div x-show="activeTab === 'radar'" class="mt-2.5 space-y-2">
+        <!-- 第一列：目標可投注盤口 + +EV 開關 + 串關篩選 -->
+        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+          <template x-for="opt in targetOptions" :key="opt.val">
+            <button
+              @click="filters.targetBook = opt.val; fetchComparisons()"
+              class="px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap border transition"
+              :class="filters.targetBook === opt.val ? 'bg-slate-900 text-white border-slate-900 shadow-sm' : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'">
+              <span x-text="opt.label"></span>
+            </button>
+          </template>
+
+          <span class="h-4 w-px bg-slate-200 mx-0.5 shrink-0"></span>
+
+          <button
+            @click="filters.onlyPositiveEv = !filters.onlyPositiveEv; fetchComparisons()"
+            class="px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap border transition"
+            :class="filters.onlyPositiveEv ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-white text-emerald-700 border-emerald-200'">
+            僅看 +EV
+          </button>
+
+          <button
+            @click="cycleParlayFilter()"
+            class="px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap border transition"
+            :class="filters.parlayFilter === 'SINGLE_ONLY' ? 'bg-sky-600 text-white border-sky-600' : (filters.parlayFilter === 'PARLAY_ONLY' ? 'bg-amber-600 text-white border-amber-600' : 'bg-white text-slate-700 border-slate-200')">
+            <span x-text="parlayFilterLabel()"></span>
+          </button>
+        </div>
+
+        <!-- 第二列：聯賽 + 最低有效參考家數 (X/5) -->
+        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+          <select
+            x-model="filters.minBenchmarks"
+            @change="fetchComparisons()"
+            class="px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 outline-none shrink-0">
+            <option value="1">參考家數 ≥ 1/5</option>
+            <option value="2">參考家數 ≥ 2/5</option>
+            <option value="3">參考家數 ≥ 3/5</option>
+            <option value="4">參考家數 ≥ 4/5</option>
+          </select>
+
+          <template x-for="lg in leagueOptions" :key="lg.val">
+            <button
+              @click="filters.league = lg.val; fetchComparisons()"
+              class="px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap border transition"
+              :class="filters.league === lg.val ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'">
+              <span x-text="lg.label"></span>
+            </button>
+          </template>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主內容區 -->
+  <main class="max-w-3xl mx-auto px-3.5 pt-3">
+
+    <!-- TAB 1: +EV 比較機會雷達 -->
+    <section x-show="activeTab === 'radar'" class="space-y-3">
+      <!-- KPI 摘要卡片列 -->
+      <div class="grid grid-cols-3 gap-2">
+        <div class="bg-white rounded-2xl border border-slate-200 p-2.5 shadow-sm">
+          <div class="text-[11px] font-medium text-slate-500">正期望值 +EV</div>
+          <div class="mt-0.5 text-lg font-extrabold text-emerald-600 tabular-nums" x-text="positiveCount + ' 筆'"></div>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200 p-2.5 shadow-sm">
+          <div class="text-[11px] font-medium text-slate-500">已對齊盤口</div>
+          <div class="mt-0.5 text-lg font-extrabold text-slate-900 tabular-nums" x-text="cards.length + ' 筆'"></div>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200 p-2.5 shadow-sm">
+          <div class="text-[11px] font-medium text-slate-500">最高 EV 幅度</div>
+          <div class="mt-0.5 text-lg font-extrabold tabular-nums"
+               :class="bestEv > 0 ? 'text-emerald-600' : 'text-slate-600'"
+               x-text="(bestEv > 0 ? '+' : '') + bestEv.toFixed(1) + '%'"></div>
+        </div>
+      </div>
+
+      <!-- 空資料提示 -->
+      <div x-show="!loading && cards.length === 0" class="bg-white rounded-2xl border border-slate-200 p-8 text-center shadow-sm">
+        <div class="text-3xl mb-2">📡</div>
+        <p class="text-sm font-semibold text-slate-800">目前篩選條件下尚無匹配賽事</p>
+        <p class="text-xs text-slate-500 mt-1">可放寬「僅看 +EV」或降低「有效參考家數」條件，或點擊右上角「立即同步」。</p>
+      </div>
+
+      <!-- 機會卡片清單 -->
+      <template x-for="card in cards" :key="card.card_id">
+        <article
+          class="bg-white rounded-2xl border shadow-sm overflow-hidden transition"
+          :class="card.is_positive_ev ? 'border-emerald-300 ring-1 ring-emerald-100' : 'border-slate-200'">
+
+          <!-- 卡片標頭：聯賽 / 時間 / 有效參考家數 -->
+          <div class="px-3.5 pt-3 pb-2 flex items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/60">
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-800 text-white" x-text="card.league"></span>
+              <span class="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-200/80 text-slate-700" x-text="marketLabel(card)"></span>
+              <span x-show="card.is_live" class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-rose-100 text-rose-700 animate-pulse">LIVE 滾球</span>
+              <span class="text-[11px] font-medium text-slate-500" x-text="card.start_time_tw"></span>
+            </div>
+
+            <!-- 有效參考家數徽章 X/5 -->
+            <span
+              class="px-2.5 py-0.5 rounded-full text-[11px] font-bold whitespace-nowrap shrink-0 border"
+              :class="card.valid_benchmark_count >= 3 ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-slate-100 text-slate-700 border-slate-200'"
+              x-text="'有效參考家數：' + card.valid_benchmark_count + '/' + card.total_benchmarks">
+            </span>
+          </div>
+
+          <!-- 賽事與建議核心列 -->
+          <div class="p-3.5 cursor-pointer" @click="toggleExpand(card.card_id)">
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0">
+                <h2 class="text-sm font-bold text-slate-900 leading-snug">
+                  <span x-text="card.away_team_zh"></span>
+                  <span class="text-slate-400 font-normal mx-1">@</span>
+                  <span x-text="card.home_team_zh"></span>
+                </h2>
+                <p class="text-[11px] text-slate-400 truncate mt-0.5" x-text="card.away_team + ' @ ' + card.home_team"></p>
+              </div>
+
+              <!-- EV 膠囊標籤 -->
+              <div class="text-right shrink-0">
+                <span
+                  class="inline-flex items-center px-2.5 py-1 rounded-xl text-xs font-extrabold tabular-nums border"
+                  :class="card.ev_pct > 0 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200'"
+                  x-text="(card.ev_pct > 0 ? '+' : '') + card.ev_pct.toFixed(2) + '% EV'">
+                </span>
+              </div>
+            </div>
+
+            <!-- 目標盤口結論框 -->
+            <div class="mt-3 rounded-xl p-2.5 border flex items-center justify-between gap-2"
+                 :class="card.is_positive_ev ? 'bg-emerald-50/50 border-emerald-200' : 'bg-slate-50 border-slate-200'">
+              <div class="min-w-0">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span
+                    class="px-2 py-0.5 rounded-md text-[11px] font-bold"
+                    :class="card.target_book === 'tsl' ? 'bg-blue-100 text-blue-800' : 'bg-sky-100 text-sky-800'"
+                    x-text="card.target_book_name"></span>
+                  <span class="text-sm font-extrabold text-slate-900" x-text="'買 ' + card.selection_name"></span>
+
+                  <!-- 台灣運彩 單場 / ⚠️ 需串關 標籤 -->
+                  <template x-if="card.target_book === 'tsl' && card.single_game_allowed === false">
+                    <span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                      ⚠️ 需串關
+                    </span>
+                  </template>
+                  <template x-if="card.target_book === 'tsl' && card.single_game_allowed === true">
+                    <span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-sky-100 text-sky-700 border border-sky-200">
+                      ✅ 單場可下
+                    </span>
+                  </template>
+                </div>
+                <div class="mt-1 text-[11px] text-slate-500 tabular-nums">
+                  指標共識真勝率 <strong class="text-slate-800" x-text="(card.consensus_prob * 100).toFixed(1) + '%'"></strong>
+                  · 公平賠率 <strong class="text-slate-800" x-text="card.consensus_fair_odds.toFixed(2)"></strong>
+                  · 勝率優勢 <strong :class="card.edge_pct > 0 ? 'text-emerald-700' : 'text-slate-600'" x-text="(card.edge_pct > 0 ? '+' : '') + card.edge_pct.toFixed(1) + '%'"></strong>
+                </div>
+              </div>
+
+              <div class="text-right shrink-0 pl-2 border-l border-slate-200">
+                <div class="text-[10px] font-medium text-slate-500">可下賠率</div>
+                <div class="text-xl font-black text-slate-900 tabular-nums" x-text="card.target_odds.toFixed(2)"></div>
+              </div>
+            </div>
+
+            <div class="mt-2 flex items-center justify-between text-[11px] text-slate-400">
+              <span>點擊查看 7 平台去水真勝率與跨盤比對</span>
+              <span x-text="expandedIds[card.card_id] ? '▲ 收合明細' : '▼ 展開 7 盤明細'"></span>
+            </div>
+          </div>
+
+          <!-- 展開的 7 盤明細抽屜 -->
+          <div x-show="expandedIds[card.card_id]" x-transition class="border-t border-slate-200 bg-slate-50 px-3.5 py-3 space-y-2.5">
+            <!-- 7 平台統一去水明細表 (5 家參考指標 + 2 家可投注盤口) -->
+            <div>
+              <div class="text-[11px] font-bold text-slate-600 mb-1.5 flex items-center justify-between">
+                <span>7 平台獨立去水明細（5 參考指標 + 2 可投注盤口）</span>
+                <span class="text-indigo-600" x-text="'有效參考 ' + card.valid_benchmark_count + '/5 家'"></span>
+              </div>
+              <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                <table class="w-full text-xs tabular-nums">
+                  <thead class="bg-slate-100 text-slate-500 text-[11px]">
+                    <tr>
+                      <th class="text-left py-1.5 px-2.5 font-semibold">平台來源</th>
+                      <th class="text-right py-1.5 px-2 font-semibold">原始賠率</th>
+                      <th class="text-right py-1.5 px-2 font-semibold">水錢%</th>
+                      <th class="text-right py-1.5 px-2.5 font-semibold">去水勝率</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100">
+                    <template x-for="bKey in ['pinnacle', 'betfair', 'polymarket', 'kalshi', 'bet365']" :key="bKey">
+                      <tr :class="card.benchmarks[bKey]?.available ? 'text-slate-800' : 'text-slate-400 bg-slate-50/60'">
+                        <td class="py-1.5 px-2.5 font-semibold">
+                          <span x-text="card.benchmarks[bKey]?.name || bKey"></span>
+                          <span class="ml-1 px-1 py-0.5 rounded text-[9px] font-medium bg-slate-100 text-slate-500">指標</span>
+                        </td>
+                        <td class="py-1.5 px-2 text-right" x-text="card.benchmarks[bKey]?.available ? card.benchmarks[bKey].raw_odds[sideIndex(card)].toFixed(2) : '—'"></td>
+                        <td class="py-1.5 px-2 text-right" x-text="card.benchmarks[bKey]?.available ? card.benchmarks[bKey].vig_pct.toFixed(1) + '%' : '—'"></td>
+                        <td class="py-1.5 px-2.5 text-right font-bold"
+                            :class="card.benchmarks[bKey]?.available ? 'text-indigo-700' : 'text-slate-400'"
+                            x-text="card.benchmarks[bKey]?.available ? card.benchmarks[bKey].true_probs_pct[sideIndex(card)].toFixed(1) + '%' : '未開盤'"></td>
+                      </tr>
+                    </template>
+
+                    <!-- 2 家可實際投注目標盤口直接併入主表對照 -->
+                    <template x-for="tKey in ['tsl', 'sportsbet']" :key="'row-' + tKey">
+                      <tr class="border-t border-sky-100"
+                          :class="!card.targets[tKey]?.available ? 'text-slate-400 bg-slate-50/60' : (card.target_book === tKey ? 'bg-sky-50/80 text-slate-900' : 'bg-sky-50/30 text-slate-800')">
+                        <td class="py-1.5 px-2.5 font-bold">
+                          <div class="flex items-center gap-1 flex-wrap">
+                            <span x-text="card.targets[tKey]?.name || tKey"></span>
+                            <span class="px-1 py-0.5 rounded text-[9px] font-bold bg-sky-100 text-sky-700">可投</span>
+                            <span x-show="tKey === 'tsl' && card.targets[tKey]?.available && card.targets[tKey]?.single_game_allowed === false"
+                                  class="px-1 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800">⚠️需串關</span>
+                            <span x-show="tKey === 'tsl' && card.targets[tKey]?.available && card.targets[tKey]?.single_game_allowed === true"
+                                  class="px-1 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-700">單場</span>
+                          </div>
+                        </td>
+                        <td class="py-1.5 px-2 text-right font-extrabold"
+                            x-text="card.targets[tKey]?.available ? card.targets[tKey].raw_odds[sideIndex(card)].toFixed(2) : '—'"></td>
+                        <td class="py-1.5 px-2 text-right"
+                            x-text="card.targets[tKey]?.available ? card.targets[tKey].vig_pct.toFixed(1) + '%' : '—'"></td>
+                        <td class="py-1.5 px-2.5 text-right font-bold"
+                            :class="card.targets[tKey]?.available ? 'text-sky-700' : 'text-slate-400'"
+                            x-text="card.targets[tKey]?.available ? targetTrueProbText(card, tKey) : '未開盤'"></td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </article>
+      </template>
+    </section>
+
+    <!-- TAB 2: 7 盤爬蟲健康度與代理狀態 -->
+    <section x-show="activeTab === 'health'" class="space-y-3">
+      <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-sm font-bold text-slate-900">AU 澳洲代理隧道狀態</h2>
+            <p class="text-xs text-slate-500 mt-0.5" x-text="'當前出口節點: ' + (healthData.proxy_active || '檢查中...')"></p>
+          </div>
+          <button @click="checkProxy()" class="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold hover:bg-slate-200">
+            驗證出口 IP
+          </button>
+        </div>
+        <div x-show="proxyCheckMsg" class="mt-2 text-xs text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-xl p-2.5" x-text="proxyCheckMsg"></div>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100 shadow-sm overflow-hidden">
+        <div class="px-4 py-3 bg-slate-50 flex items-center justify-between">
+          <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider">7 平台數據擷取狀態 (Read-Only)</h3>
+          <span class="text-[11px] text-slate-500" x-text="healthData.taiwan_now || ''"></span>
+        </div>
+        <template x-for="src in sources" :key="src.source">
+          <div class="p-3.5 flex items-center justify-between gap-3">
+            <div class="min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="h-2.5 w-2.5 rounded-full shrink-0"
+                      :class="src.status === 'ok' ? 'bg-emerald-500' : (src.status === 'degraded' ? 'bg-amber-500' : 'bg-rose-500')"></span>
+                <span class="text-sm font-bold text-slate-900" x-text="src.display_name"></span>
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                      :class="src.role === 'benchmark' ? 'bg-indigo-50 text-indigo-700' : 'bg-sky-50 text-sky-700'"
+                      x-text="src.role === 'benchmark' ? '參考指標' : '可投注'"></span>
+              </div>
+              <p class="text-xs text-slate-500 mt-0.5 truncate" x-text="src.message"></p>
+            </div>
+            <div class="text-right shrink-0 tabular-nums">
+              <div class="text-sm font-extrabold text-slate-800" x-text="src.matches_count + ' 筆'"></div>
+              <div class="text-[11px] text-slate-400" x-text="src.latency_ms + ' ms'"></div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </section>
+
+    <!-- TAB 3: 量化規則與手機使用說明 -->
+    <section x-show="activeTab === 'guide'" class="space-y-3">
+      <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-3 text-xs leading-relaxed text-slate-600">
+        <h2 class="text-sm font-bold text-slate-900">📐 量化去水與 +EV 判定邏輯</h2>
+        <p><strong class="text-slate-800">1. 五大參考指標去水共識：</strong>系統針對 <span class="text-indigo-700 font-semibold">Polymarket、Kalshi、Pinnacle（免 Key）、Betfair Exchange (AU)、Bet365</span> 各自採用 <strong>Power Method (冪次法)</strong> 剝除莊家抽水後，依市場流動性與銳度加權合成真實勝率 <strong><i>P</i><sub>true</sub></strong>。</p>
+        <p><strong class="text-slate-800">2. 有效參考家數 (X/5)：</strong>當冷門聯賽（例如中職 CPBL 或部分電競）僅 1~3 家指標開盤時，系統仍會保留並清楚標註「有效參考家數：X/5」，供你依資訊完整度決策。</p>
+        <p><strong class="text-slate-800">3. 台灣運彩 ⚠️ 需串關標記：</strong>無法單買、須過 2 關以上的台彩盤口出現正期望值時依然顯示，並貼上 <strong>⚠️ 需串關</strong> 標籤提醒你可作為串關配腳。</p>
+        <p><strong class="text-slate-800">4. 純淨只讀架構：</strong>已徹底移除所有自動下注與帳號登入功能，發現高 +EV 機會後由你本人親自於台灣運彩或 Sportsbet App 下單。</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 手機底部導覽列 -->
+  <nav class="fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur border-t border-slate-200 pb-safe">
+    <div class="max-w-3xl mx-auto grid grid-cols-3 h-14">
+      <button @click="activeTab = 'radar'" class="flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold"
+              :class="activeTab === 'radar' ? 'text-indigo-600' : 'text-slate-500'">
+        <span class="text-base">📊</span>
+        <span>+EV 雷達</span>
+      </button>
+      <button @click="activeTab = 'health'; fetchHealth()" class="flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold"
+              :class="activeTab === 'health' ? 'text-indigo-600' : 'text-slate-500'">
+        <span class="text-base">🩺</span>
+        <span>7 盤狀態</span>
+      </button>
+      <button @click="activeTab = 'guide'" class="flex flex-col items-center justify-center gap-0.5 text-[11px] font-semibold"
+              :class="activeTab === 'guide' ? 'text-indigo-600' : 'text-slate-500'">
+        <span class="text-base">📘</span>
+        <span>量化說明</span>
+      </button>
+    </div>
+  </nav>
+
+  <script>
+    function radarApp() {
+      return {
+        activeTab: 'radar',
+        loading: true,
+        isSyncing: false,
+        cards: [],
+        positiveCount: 0,
+        sources: [],
+        meta: {},
+        healthData: {},
+        proxyCheckMsg: '',
+        expandedIds: {},
+        filters: {
+          league: 'ALL',
+          targetBook: 'ALL',
+          minBenchmarks: '1',
+          parlayFilter: 'ALL',
+          onlyPositiveEv: false,
+        },
+        targetOptions: [
+          { val: 'ALL', label: '全部目標盤' },
+          { val: 'tsl', label: '🇹🇼 台灣運彩' },
+          { val: 'sportsbet', label: '🇦🇺 Sportsbet' },
+        ],
+        leagueOptions: [
+          { val: 'ALL', label: '全聯賽' },
+          { val: 'NBA', label: 'NBA' },
+          { val: 'EPL', label: '英超' },
+          { val: 'UCL', label: '歐冠' },
+          { val: 'NHL', label: 'NHL' },
+          { val: 'MLB', label: 'MLB' },
+          { val: 'CPBL', label: '中職' },
+          { val: 'NPB', label: '日職' },
+          { val: 'LOL', label: 'LoL' },
+        ],
+        get bestEv() {
+          if (!this.cards.length) return 0;
+          return Math.max(...this.cards.map(c => c.ev_pct));
+        },
+        init() {
+          this.fetchComparisons();
+          this.fetchHealth();
+          setInterval(() => {
+            this.fetchComparisons();
+          }, 25000);
+        },
+        async fetchComparisons() {
+          const params = new URLSearchParams({
+            league: this.filters.league,
+            target_book: this.filters.targetBook,
+            min_benchmarks: this.filters.minBenchmarks,
+            parlay_filter: this.filters.parlayFilter,
+            only_positive_ev: this.filters.onlyPositiveEv ? 'true' : 'false',
+          });
+          try {
+            const res = await fetch('/api/comparisons?' + params.toString());
+            const data = await res.json();
+            this.cards = data.cards || [];
+            this.positiveCount = data.positive_count || 0;
+            this.isSyncing = !!data.is_syncing;
+            this.meta = data.meta || {};
+            if (data.sources?.length) this.sources = data.sources;
+          } catch (e) {
+            console.error(e);
+          } finally {
+            this.loading = false;
+          }
+        },
+        async fetchHealth() {
+          try {
+            const res = await fetch('/api/health');
+            const data = await res.json();
+            this.healthData = data;
+            this.sources = data.sources || [];
+            this.isSyncing = !!data.is_syncing;
+          } catch (e) {}
+        },
+        async triggerSync() {
+          this.isSyncing = true;
+          try {
+            await fetch('/api/sync', { method: 'POST' });
+            const poll = setInterval(async () => {
+              await this.fetchComparisons();
+              if (!this.isSyncing) clearInterval(poll);
+            }, 3000);
+          } catch (e) {
+            this.isSyncing = false;
+          }
+        },
+        async checkProxy() {
+          this.proxyCheckMsg = '正在探測代理出口 IP...';
+          try {
+            const res = await fetch('/api/proxy-check');
+            const d = await res.json();
+            this.proxyCheckMsg = d.ok
+              ? `✅ 正常 (${d.country} / ${d.city}) IP: ${d.ip} via ${d.proxy_used}`
+              : `❌ 探測失敗: ${d.error}`;
+          } catch (e) {
+            this.proxyCheckMsg = '探測請求失敗';
+          }
+        },
+        toggleExpand(id) {
+          this.expandedIds[id] = !this.expandedIds[id];
+        },
+        cycleParlayFilter() {
+          const order = ['ALL', 'SINGLE_ONLY', 'PARLAY_ONLY'];
+          const next = order[(order.indexOf(this.filters.parlayFilter) + 1) % order.length];
+          this.filters.parlayFilter = next;
+          this.fetchComparisons();
+        },
+        parlayFilterLabel() {
+          if (this.filters.parlayFilter === 'SINGLE_ONLY') return '僅單場可下';
+          if (this.filters.parlayFilter === 'PARLAY_ONLY') return '僅看 ⚠️需串關';
+          return '單場 + 串關';
+        },
+        marketLabel(card) {
+          if (card.market_type === 'ML') return '獨贏 ML';
+          if (card.market_type === 'SPREAD') return '讓分 ' + card.line_display;
+          if (card.market_type === 'TOTAL') return '大小 ' + card.line_display;
+          return card.market_type;
+        },
+        sideIndex(card) {
+          if (card.selection_side === 'home' || card.selection_side === 'over') return 0;
+          if (card.selection_side === 'draw') return 1;
+          const n = card.targets?.[card.target_book]?.raw_odds?.length || 2;
+          return n === 3 ? 2 : 1;
+        },
+        targetTrueProbText(card, tKey) {
+          const t = card.targets?.[tKey];
+          if (!t || !t.available) return '未開盤';
+          const idx = this.sideIndex(card);
+          if (t.true_probs_pct && t.true_probs_pct[idx] !== undefined) {
+            return Number(t.true_probs_pct[idx]).toFixed(1) + '%';
+          }
+          const odds = t.raw_odds || [];
+          const sumInv = odds.reduce((acc, o) => acc + (o > 1 ? 1 / o : 0), 0);
+          if (sumInv > 0 && odds[idx] > 1) {
+            return (((1 / odds[idx]) / sumInv) * 100).toFixed(1) + '%';
+          }
+          return '—';
+        },
+      };
+    }
+  </script>
+</body>
+</html>
