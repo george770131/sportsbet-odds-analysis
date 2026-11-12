@@ -7,7 +7,7 @@ module.exports = {
       name: "odds-collector",
       cwd: projectRoot,
       script: path.join(projectRoot, ".venv/bin/python"),
-      args: "-m radar.collector --interval 180",
+      args: "-m radar.collector --interval 120",
       interpreter: "none",
       autorestart: true,
       max_restarts: 50,

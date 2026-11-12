@@ -4,9 +4,12 @@
 """
 import argparse
 import concurrent.futures
+import html
+import re
 import time
 import urllib.parse
 import urllib.request
+from pathlib import Path
 from typing import Dict, List, Any, Tuple
 import config
 from sportsbet_agent.proxy_config import load_agent_config
@@ -26,8 +29,8 @@ class RadarCollector:
     def __init__(self, include_playwright: bool = True):
         self.include_playwright = include_playwright
         self.engine = OddsComparisonEngine()
-        # 避免重複推播同一張高 +EV 卡片 (card_id -> last_sent_ts)
-        self._alerted_cache: Dict[str, float] = {}
+        # 避免重複轟炸同一張 +EV 卡片: card_id -> (last_sent_ts, last_ev_pct, last_odds)
+        self._alerted_cache: Dict[str, Tuple[float, float, float]] = {}
 
     def run_once(self) -> Dict[str, Any]:
         t_start = time.time()
@@ -78,7 +81,7 @@ class RadarCollector:
         pos_cards = [c for c in cards if c["is_positive_ev"]]
         radar_db.set_meta("positive_ev_cards", str(len(pos_cards)), now_str)
 
-        # 自動推播高價值 +EV (預設 >= 4.0% 且至少 2 家參考指標確認)
+        # 只要發現正 +EV (ev_pct > 0, 至少 1/5 家參考指標) 即立即推播完整 7 平台明細卡片至 Telegram
         alerts_sent = self._dispatch_telegram_alerts(pos_cards)
 
         return {
@@ -91,7 +94,115 @@ class RadarCollector:
             "health": health_rows,
         }
 
-    def _dispatch_telegram_alerts(self, pos_cards: List[Dict[str, Any]], min_ev: float = 4.0, min_bench: int = 2) -> int:
+    @staticmethod
+    def _side_index(card: Dict[str, Any]) -> int:
+        side = card.get("selection_side", "home")
+        if side in ("home", "over"):
+            return 0
+        if side == "draw":
+            return 1
+        t_book = card.get("target_book", "")
+        raw = card.get("targets", {}).get(t_book, {}).get("raw_odds", [])
+        return 2 if len(raw) == 3 else 1
+
+    @staticmethod
+    def _get_latest_tunnel_url() -> str:
+        log_path = Path.home() / ".pm2" / "logs" / "odds-tunnel-out.log"
+        if not log_path.exists():
+            return ""
+        try:
+            text = log_path.read_text(encoding="utf-8", errors="ignore")
+            matches = re.findall(r"https://[a-zA-Z0-9-]+\.trycloudflare\.com", text)
+            return matches[-1] if matches else ""
+        except Exception:
+            return ""
+
+    @classmethod
+    def format_telegram_card(cls, c: Dict[str, Any], tunnel_url: str = "") -> str:
+        idx = cls._side_index(c)
+        mkt_label = {
+            "ML": "獨贏 ML",
+            "SPREAD": f"讓分 {c.get('line_display', '')}",
+            "TOTAL": f"大小 {c.get('line_display', '')}",
+        }.get(c.get("market_type", ""), c.get("market_type", ""))
+
+        parlay_tag = ""
+        if c.get("target_book") == "tsl":
+            if c.get("single_game_allowed") is False:
+                parlay_tag = " ⚠️<b>需串關</b>"
+            elif c.get("single_game_allowed") is True:
+                parlay_tag = " ✅單場可下"
+
+        away_zh = html.escape(str(c.get("away_team_zh", "")))
+        home_zh = html.escape(str(c.get("home_team_zh", "")))
+        away_en = html.escape(str(c.get("away_team", "")))
+        home_en = html.escape(str(c.get("home_team", "")))
+        sel_name = html.escape(str(c.get("selection_name", "")))
+        book_name = html.escape(str(c.get("target_book_name", "")))
+        start_tw = html.escape(str(c.get("start_time_tw", "近期開賽")))
+        league = html.escape(str(c.get("league", "")))
+
+        lines = [
+            f"🟢 <b>發現正期望值 +EV（+{c['ev_pct']:.2f}% EV）</b>",
+            f"<b>[{league}] {html.escape(mkt_label)}</b>｜{start_tw}｜有效參考家數：<b>{c['valid_benchmark_count']}/{c.get('total_benchmarks', 5)}</b>",
+            "",
+            f"🏟️ <b>{away_zh} @ {home_zh}</b>",
+            f"<i>{away_en} @ {home_en}</i>",
+            "",
+            f"🎯 <b>{book_name}</b>{parlay_tag} 買 <b>{sel_name}</b>｜可下賠率 <b><code>{c['target_odds']:.2f}</code></b>",
+            f"📊 指標共識真勝率 <code>{c['consensus_prob']*100:.1f}%</code> · 公平賠率 <code>{c['consensus_fair_odds']:.2f}</code> · 勝率優勢 <code>+{c['edge_pct']:.1f}%</code>",
+            "",
+            "<b>7 平台獨立去水明細（賠率｜水錢｜去水勝率）</b>",
+        ]
+
+        benchmarks = c.get("benchmarks", {})
+        for b_key, label in [
+            ("pinnacle", "Pinnacle"),
+            ("betfair", "Betfair Exchange"),
+            ("polymarket", "Polymarket"),
+            ("kalshi", "Kalshi"),
+            ("bet365", "Bet365"),
+        ]:
+            info = benchmarks.get(b_key, {})
+            if info.get("available") and len(info.get("raw_odds", [])) > idx:
+                raw_o = info["raw_odds"][idx]
+                vig = info.get("vig_pct", 0.0)
+                prob = info["true_probs_pct"][idx]
+                lines.append(f"• {label} [指標]：<code>{raw_o:.2f}</code>｜<code>{vig:.1f}%</code>｜<b><code>{prob:.1f}%</code></b>")
+            else:
+                lines.append(f"• {label} [指標]：未開盤")
+
+        targets = c.get("targets", {})
+        for t_key, label in [
+            ("tsl", "🇹🇼 台灣運彩"),
+            ("sportsbet", "🇦🇺 澳洲 Sportsbet"),
+        ]:
+            info = targets.get(t_key, {})
+            if info.get("available") and len(info.get("raw_odds", [])) > idx:
+                raw_o = info["raw_odds"][idx]
+                vig = info.get("vig_pct", 0.0)
+                probs = info.get("true_probs_pct", [])
+                if len(probs) > idx:
+                    prob_str = f"{probs[idx]:.1f}%"
+                else:
+                    odds_arr = info.get("raw_odds", [])
+                    sum_inv = sum((1.0 / o) for o in odds_arr if o and o > 1.0)
+                    prob_str = f"{((1.0 / raw_o) / sum_inv) * 100.0:.1f}%" if sum_inv > 0 and raw_o > 1.0 else "—"
+                extra_tag = ""
+                if t_key == "tsl":
+                    if info.get("single_game_allowed") is False:
+                        extra_tag = " ⚠️需串關"
+                    elif info.get("single_game_allowed") is True:
+                        extra_tag = " 單場"
+                lines.append(f"• <b>{label}</b> [可投{extra_tag}]：<b><code>{raw_o:.2f}</code></b>｜<code>{vig:.1f}%</code>｜<b><code>{prob_str}</code></b>")
+            else:
+                lines.append(f"• {label} [可投]：未開盤")
+
+        if tunnel_url:
+            lines.append(f"\n📱 <a href=\"{tunnel_url}\">點此開啟 7 盤定量比價雷達</a>")
+        return "\n".join(lines)
+
+    def _dispatch_telegram_alerts(self, pos_cards: List[Dict[str, Any]], min_ev: float = 0.01, min_bench: int = 1) -> int:
         cfg = load_agent_config()
         token = cfg.get("telegram_bot_token")
         chat_id = cfg.get("allowed_chat_id")
@@ -99,48 +210,51 @@ class RadarCollector:
             return 0
 
         now_ts = time.time()
+        # 清理超過 1 小時的舊快取
+        self._alerted_cache = {k: v for k, v in self._alerted_cache.items() if now_ts - v[0] < 3600}
+
         to_send = []
         for c in pos_cards:
             if c["ev_pct"] < min_ev or c["valid_benchmark_count"] < min_bench:
                 continue
-            last_ts = self._alerted_cache.get(c["card_id"], 0.0)
-            # 同一盤口 45 分鐘內不重複轟炸
-            if now_ts - last_ts < 2700:
-                continue
-            self._alerted_cache[c["card_id"]] = now_ts
+            prev = self._alerted_cache.get(c["card_id"])
+            if prev:
+                last_ts, last_ev, last_odds = prev
+                # 30 分鐘內同一盤口若賠率沒變好、EV 也沒有大幅躍升 (+1.0% 以上) 則不重複轟炸
+                improved = (c["target_odds"] > last_odds) and (c["ev_pct"] >= last_ev + 1.0)
+                if (now_ts - last_ts < 1800) and not improved:
+                    continue
+            self._alerted_cache[c["card_id"]] = (now_ts, float(c["ev_pct"]), float(c["target_odds"]))
             to_send.append(c)
 
         if not to_send:
             return 0
 
-        lines = ["📡 <b>7平台比價雷達｜發現正期望值 (+EV)</b>\n"]
+        tunnel_url = self._get_latest_tunnel_url()
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        sent = 0
         for c in to_send[:5]:
-            parlay_tag = " ⚠️<b>需串關</b>" if c.get("single_game_allowed") is False else (
-                " ✅單場" if c.get("single_game_allowed") is True else ""
-            )
-            mkt_label = {"ML": "獨贏", "SPREAD": f"讓分 {c['line_display']}", "TOTAL": f"大小 {c['line_display']}"}.get(c["market_type"], c["market_type"])
-            lines.append(
-                f"• <b>[{c['league']}] {c['away_team_zh']} @ {c['home_team_zh']}</b> ({mkt_label})\n"
-                f"  🎯 <b>{c['target_book_name']}</b> 買 <b>{c['selection_name']}</b> @ <code>{c['target_odds']}</code>{parlay_tag}\n"
-                f"  📊 共識真勝率 <code>{round(c['consensus_prob']*100, 1)}%</code> (公平 {c['consensus_fair_odds']}) ｜ "
-                f"<b>+{c['ev_pct']}% EV</b> ｜ 有效參考：<code>{c['valid_benchmark_count']}/5</code>"
-            )
-
-        msg = "\n".join(lines)
-        try:
-            url = f"https://api.telegram.org/bot{token}/sendMessage"
-            data = urllib.parse.urlencode({"chat_id": chat_id, "text": msg, "parse_mode": "HTML"}).encode()
-            req = urllib.request.Request(url, data=data, method="POST")
-            urllib.request.urlopen(req, timeout=8)
-            return len(to_send[:5])
-        except Exception:
-            return 0
+            msg = self.format_telegram_card(c, tunnel_url=tunnel_url)
+            try:
+                data = urllib.parse.urlencode({
+                    "chat_id": chat_id,
+                    "text": msg,
+                    "parse_mode": "HTML",
+                    "disable_web_page_preview": "true",
+                }).encode()
+                req = urllib.request.Request(url, data=data, method="POST")
+                urllib.request.urlopen(req, timeout=8)
+                sent += 1
+                time.sleep(0.3)
+            except Exception:
+                continue
+        return sent
 
 
 def main():
     parser = argparse.ArgumentParser(description="7-Platform Read-Only Odds Radar Collector")
     parser.add_argument("--once", action="store_true", help="僅執行單次採集並退出")
-    parser.add_argument("--interval", type=int, default=180, help="輪詢間隔秒數 (預設 180 秒)")
+    parser.add_argument("--interval", type=int, default=120, help="輪詢間隔秒數 (預設 120 秒)")
     parser.add_argument("--fast", action="store_true", help="略過 Playwright (Bet365/Sportsbet)，僅抓 API 來源測試")
     args = parser.parse_args()
 

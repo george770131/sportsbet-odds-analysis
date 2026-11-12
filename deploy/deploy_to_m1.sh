@@ -33,11 +33,11 @@ ssh "${M1_HOST}" "export PATH=/opt/homebrew/bin:/usr/local/bin:\$PATH && \
   chmod +x deploy/run_tunnel_notify.sh deploy/deploy_to_m1.sh"
 
 if [[ "${RESTART_TUNNEL}" == "--restart-tunnel" ]]; then
-  echo "♻️ 重啟 M1 全部 3 個 PM2 服務（含 Tunnel 新網址推播）..."
-  ssh "${M1_HOST}" "export PATH=/opt/homebrew/bin:/usr/local/bin:\$PATH && pm2 restart odds-collector odds-web odds-tunnel && pm2 save"
+  echo "♻️ 重載 M1 全部 3 個 PM2 服務（含 Tunnel 新網址推播）..."
+  ssh "${M1_HOST}" "export PATH=/opt/homebrew/bin:/usr/local/bin:\$PATH && cd ${M1_DIR} && pm2 startOrReload deploy/ecosystem.config.js --update-env && pm2 save"
 else
-  echo "♻️ 熱重啟 M1 核心服務 (odds-collector, odds-web)，保留現有 Tunnel 網址..."
-  ssh "${M1_HOST}" "export PATH=/opt/homebrew/bin:/usr/local/bin:\$PATH && pm2 restart odds-collector odds-web && pm2 save"
+  echo "♻️ 熱重載 M1 核心服務 (odds-collector, odds-web)，保留現有 Tunnel 網址..."
+  ssh "${M1_HOST}" "export PATH=/opt/homebrew/bin:/usr/local/bin:\$PATH && cd ${M1_DIR} && pm2 startOrReload deploy/ecosystem.config.js --only odds-collector,odds-web --update-env && pm2 save"
 fi
 
 echo "✅ GitHub 雙向同步與 M1 熱部署完成！"

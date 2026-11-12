@@ -38,6 +38,6 @@ M1（`m1` / `192.168.68.118`，專案路徑 `/Users/george/Developer/sportsbet-o
    ```
 
 ## 3. M1 常駐架構備忘
-- **PM2 進程**：`odds-collector`（每 180 秒採集 + Telegram 高 +EV 推播）、`odds-web`（FastAPI 監聽 `127.0.0.1:8501`）、`odds-tunnel`（Cloudflare Quick Tunnel 並在啟動時自動將網址發送至 Telegram）。
+- **PM2 進程**：`odds-collector`（每 120 秒採集 + 出現正 +EV 即時推送完整 7 盤比價至 Telegram）、`odds-web`（FastAPI 監聽 `127.0.0.1:8501`）、`odds-tunnel`（Cloudflare Quick Tunnel 並在啟動時自動將網址發送至 Telegram）。
 - **開機防護**：上述三個服務已登錄於 M1 的 `~/Scripts/pm2_boot_guard.sh` 與 `pm2 save`。
 - **澳洲代理**：M1 本機透過 `http://127.0.0.1:8888`（Surfshark AU Docker 容器）直連；M4 則自動使用 `http://192.168.68.118:8888`。
