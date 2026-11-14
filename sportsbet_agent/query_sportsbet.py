@@ -39,8 +39,11 @@ PROXY_SERVER = get_active_proxy()
 
 # 運動類別路由字典
 SPORT_ROUTES = {
-    # 電競 / 英雄聯盟
+    # 電競 / 英雄聯盟 / CS
     "lol": {"slug": "e-sports/lol-world-championship", "name": "英雄聯盟世界大賽 (LoL Worlds)", "icon": "🎮"},
+    "cs": {"slug": "e-sports/counter-strike-2", "name": "Counter-Strike (CS / CS2)", "icon": "🔫"},
+    "cs2": {"slug": "e-sports/counter-strike-2", "name": "Counter-Strike 2 (CS2)", "icon": "🔫"},
+    "csgo": {"slug": "e-sports/counter-strike-2", "name": "CS:GO", "icon": "🔫"},
     "英雄聯盟": {"slug": "e-sports/lol-world-championship", "name": "英雄聯盟世界大賽 (LoL Worlds)", "icon": "🎮"},
     "worlds": {"slug": "e-sports/lol-world-championship", "name": "英雄聯盟世界大賽 (LoL Worlds)", "icon": "🎮"},
     "世界大賽": {"slug": "e-sports/lol-world-championship", "name": "英雄聯盟世界大賽 (LoL Worlds)", "icon": "🎮"},
@@ -56,7 +59,7 @@ SPORT_ROUTES = {
     "nba": {"slug": "basketball-us", "name": "NBA 美國職籃", "icon": "🏀"},
     "籃球": {"slug": "basketball-us", "name": "美國職籃 (NBA)", "icon": "🏀"},
     "basketball": {"slug": "basketball-us", "name": "美國職籃 (NBA)", "icon": "🏀"},
-    "nbl": {"slug": "basketball-aus-other", "name": "澳洲職籃 (NBL)", "icon": "🏀"},
+    "nbl": {"slug": "basketball-aus-other/australian-nbl", "name": "澳洲職籃 (NBL)", "icon": "🏀"},
     "cba": {"slug": "basketball-aus-other/chinese-cba", "name": "CBA 中國男籃職業聯賽", "icon": "🏀"},
     "大陸職籃": {"slug": "basketball-aus-other/chinese-cba", "name": "CBA 中國男籃職業聯賽", "icon": "🏀"},
     "中國職籃": {"slug": "basketball-aus-other/chinese-cba", "name": "CBA 中國男籃職業聯賽", "icon": "🏀"},
@@ -83,9 +86,9 @@ SPORT_ROUTES = {
     "tennis": {"slug": "tennis", "name": "網球賽事 (Tennis)", "icon": "🎾"},
 
     # 美足
-    "美足": {"slug": "american-football", "name": "美式足球 (NFL)", "icon": "🏈"},
-    "nfl": {"slug": "american-football", "name": "美式足球 (NFL)", "icon": "🏈"},
-    "美式足球": {"slug": "american-football", "name": "美式足球 (NFL)", "icon": "🏈"},
+    "美足": {"slug": "american-football/nfl", "name": "美式足球 (NFL)", "icon": "🏈"},
+    "nfl": {"slug": "american-football/nfl", "name": "美式足球 (NFL)", "icon": "🏈"},
+    "美式足球": {"slug": "american-football/nfl", "name": "美式足球 (NFL)", "icon": "🏈"},
 
     # 格鬥
     "ufc": {"slug": "ufc-mma", "name": "UFC 終極格鬥冠軍賽", "icon": "🥊"},
@@ -151,6 +154,11 @@ TEAM_ALIASES = {
 def detect_sport_target(query: str) -> dict:
     """根據使用者查詢語句，智能判斷欲查詢的運動類別"""
     q = query.lower().strip()
+
+    if "/" in q:
+        return {"slug": q, "name": q, "icon": "🎯"}
+    if q in SPORT_ROUTES:
+        return SPORT_ROUTES[q]
 
     # 1. 先檢驗是否有命中具體隊伍名稱
     for team_kw, sport_key in TEAM_ALIASES.items():

@@ -49,6 +49,9 @@ class PolymarketClient:
     SPORT_TAGS = {
         "nba": 745,
         "basketball": 745,
+        "nfl": 451,
+        "cs": 100780,
+        "cs2": 100780,
         "lol": 65,
         "esports": 65,
         "worlds": 65,
@@ -175,7 +178,12 @@ class PolymarketClient:
         sport_category = "General"
         tags = [t.get("label", "").lower() for t in event.get("tags", []) if isinstance(t, dict)]
         if any("nba" in t or "basketball" in t for t in tags):
-            sport_category = "NBA"
+            if any("nbl" in t for t in tags):
+                sport_category = "NBL"
+            else:
+                sport_category = "NBA"
+        elif any("cs2" in t or "counter strike" in t or "counter-strike" in t or "cs:go" in t for t in tags):
+            sport_category = "CS"
         elif any("lol" in t or "league of legends" in t or "esport" in t for t in tags):
             sport_category = "LoL"
         elif any("mlb" in t or "baseball" in t for t in tags):

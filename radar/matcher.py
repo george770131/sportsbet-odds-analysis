@@ -112,6 +112,81 @@ ZH_TO_CANONICAL: Dict[str, str] = {
     "美洲豹": "florida panthers", "楓葉": "toronto maple leafs",
     "遊騎兵(冰球)": "new york rangers", "雪崩": "colorado avalanche",
     "黃金騎士": "vegas golden knights", "棕熊": "boston bruins",
+
+    # NFL (美式足球全部 32 隊)
+    "愛國者": "new england patriots", "新英格蘭愛國者": "new england patriots",
+    "比爾": "buffalo bills", "水牛城比爾": "buffalo bills",
+    "海豚": "miami dolphins", "邁阿密海豚": "miami dolphins",
+    "噴射機": "new york jets", "紐約噴射機": "new york jets",
+    "烏鴉": "baltimore ravens", "巴爾的摩烏鴉": "baltimore ravens",
+    "孟加拉虎": "cincinnati bengals", "辛辛那提孟加拉虎": "cincinnati bengals",
+    "布朗": "cleveland browns", "克里夫蘭布朗": "cleveland browns",
+    "鋼人": "pittsburgh steelers", "匹茲堡鋼人": "pittsburgh steelers",
+    "德州人": "houston texans", "休士頓德州人": "houston texans",
+    "小馬": "indianapolis colts", "印第安納波利斯小馬": "indianapolis colts", "印城小馬": "indianapolis colts",
+    "捷豹": "jacksonville jaguars", "傑克遜維爾美洲豹": "jacksonville jaguars",
+    "泰坦": "tennessee titans", "田納西泰坦": "tennessee titans",
+    "野馬": "denver broncos", "丹佛野馬": "denver broncos",
+    "酋長": "kansas city chiefs", "堪薩斯城酋長": "kansas city chiefs", "堪薩斯酋長": "kansas city chiefs",
+    "突擊者": "las vegas raiders", "拉斯維加斯突擊者": "las vegas raiders", "奧克蘭突擊者": "las vegas raiders",
+    "電光": "los angeles chargers", "衝鋒者": "los angeles chargers", "洛杉磯衝鋒者": "los angeles chargers", "洛杉磯電光": "los angeles chargers", "閃電": "los angeles chargers",
+    "牛仔": "dallas cowboys", "達拉斯牛仔": "dallas cowboys",
+    "巨人(美足)": "new york giants",
+    "老鷹(美足)": "philadelphia eagles",
+    "司令": "washington commanders", "華盛頓司令": "washington commanders",
+    "熊隊": "chicago bears", "芝加哥熊": "chicago bears", "芝加哥熊隊": "chicago bears",
+    "獅隊": "detroit lions", "底特律獅": "detroit lions",
+    "包裝工": "green bay packers", "綠灣包裝工": "green bay packers",
+    "維京人": "minnesota vikings", "明尼蘇達維京人": "minnesota vikings",
+    "獵鷹": "atlanta falcons", "亞特蘭大獵鷹": "atlanta falcons",
+    "黑豹": "carolina panthers", "卡羅萊納黑豹": "carolina panthers",
+    "聖徒": "new orleans saints", "紐奧良聖徒": "new orleans saints",
+    "海盜(美足)": "tampa bay buccaneers",
+    "紅雀(美足)": "arizona cardinals",
+    "公羊": "los angeles rams", "洛杉磯公羊": "los angeles rams",
+    "49人": "san francisco 49ers", "舊金山49人": "san francisco 49ers",
+    "海鷹": "seattle seahawks", "西雅圖海鷹": "seattle seahawks",
+
+    # 澳洲 NBL (全部 10 隊)
+    "墨爾本聯隊": "melbourne united", "墨爾本聯": "melbourne united",
+    "東南墨爾本鳳凰": "se melbourne phoenix", "東南墨爾本": "se melbourne phoenix",
+    "雪梨國王": "sydney kings", "悉尼國王": "sydney kings",
+    "伯斯野貓": "perth wildcats", "珀斯野貓": "perth wildcats",
+    "伊拉瓦拉老鷹": "illawarra hawks", "伊拉瓦拉鷹": "illawarra hawks",
+    "塔斯馬尼亞跳傘蟻": "tasmania jackjumpers", "塔斯馬尼亞跳蟻": "tasmania jackjumpers", "跳傘蟻": "tasmania jackjumpers", "跳蟻": "tasmania jackjumpers",
+    "紐西蘭破壞者": "new zealand breakers", "紐西蘭突破者": "new zealand breakers", "破壞者": "new zealand breakers",
+    "布里斯本子彈": "brisbane bullets", "子彈": "brisbane bullets",
+    "阿得雷德36人": "adelaide 36ers", "阿德萊德36人": "adelaide 36ers",
+    "凱恩斯太攀蛇": "cairns taipans", "太攀蛇": "cairns taipans",
+
+    # CS2 / CS 電競主要戰隊
+    "navi": "natus vincere", "natus vincere": "natus vincere", "納圖斯萬斯": "natus vincere",
+    "faze": "faze clan", "faze clan": "faze clan",
+    "vitality": "team vitality", "team vitality": "team vitality",
+    "spirit": "team spirit", "team spirit": "team spirit",
+    "mouz": "mouz", "mousesports": "mouz",
+    "astralis": "astralis",
+    "virtus.pro": "virtus.pro", "vp": "virtus.pro",
+    "liquid": "team liquid", "team liquid": "team liquid",
+    "complexity": "complexity gaming", "complexity gaming": "complexity gaming",
+    "heroic": "heroic",
+    "eternal fire": "eternal fire",
+    "furia": "furia esports", "furia esports": "furia esports",
+    "big": "big", "big clan": "big",
+    "pain": "pain gaming", "pain gaming": "pain gaming",
+    "mongolz": "the mongolz", "the mongolz": "the mongolz",
+    "ence": "ence",
+    "imperial": "imperial esports", "imperial esports": "imperial esports",
+    "m80": "m80",
+    "saw": "saw",
+    "9z": "9z team", "9z team": "9z team",
+    "gamerlegion": "gamerlegion",
+    "sangal": "sangal esports", "sangal esports": "sangal esports",
+    "3dmax": "3dmax",
+    "nemiga": "nemiga gaming", "nemiga gaming": "nemiga gaming",
+    "rare atom": "rare atom",
+    "lynn vision": "lynn vision",
+    "tyloo": "tyloo",
 }
 
 # 2. 英文縮寫 / 別名 -> Canonical Key
@@ -221,6 +296,78 @@ EN_TO_CANONICAL: Dict[str, str] = {
     "borussia dortmund": "borussia dortmund", "dortmund": "borussia dortmund",
     "inter milan": "inter milan", "inter": "inter milan", "ac milan": "ac milan", "juventus": "juventus",
     "paris saint germain": "paris saint germain", "paris saint-germain": "paris saint germain", "psg": "paris saint germain",
+
+    # NFL (美式足球)
+    "patriots": "new england patriots", "new england patriots": "new england patriots", "new england": "new england patriots",
+    "bills": "buffalo bills", "buffalo bills": "buffalo bills", "buffalo": "buffalo bills",
+    "dolphins": "miami dolphins", "miami dolphins": "miami dolphins",
+    "jets": "new york jets", "new york jets": "new york jets", "ny jets": "new york jets",
+    "ravens": "baltimore ravens", "baltimore ravens": "baltimore ravens", "baltimore": "baltimore ravens",
+    "bengals": "cincinnati bengals", "cincinnati bengals": "cincinnati bengals", "cincinnati": "cincinnati bengals",
+    "browns": "cleveland browns", "cleveland browns": "cleveland browns",
+    "steelers": "pittsburgh steelers", "pittsburgh steelers": "pittsburgh steelers", "pittsburgh": "pittsburgh steelers",
+    "texans": "houston texans", "houston texans": "houston texans",
+    "colts": "indianapolis colts", "indianapolis colts": "indianapolis colts", "indianapolis": "indianapolis colts",
+    "jaguars": "jacksonville jaguars", "jacksonville jaguars": "jacksonville jaguars", "jacksonville": "jacksonville jaguars",
+    "titans": "tennessee titans", "tennessee titans": "tennessee titans", "tennessee": "tennessee titans",
+    "broncos": "denver broncos", "denver broncos": "denver broncos",
+    "chiefs": "kansas city chiefs", "kansas city chiefs": "kansas city chiefs", "kansas city": "kansas city chiefs",
+    "raiders": "las vegas raiders", "las vegas raiders": "las vegas raiders", "las vegas": "las vegas raiders",
+    "chargers": "los angeles chargers", "los angeles chargers": "los angeles chargers",
+    "cowboys": "dallas cowboys", "dallas cowboys": "dallas cowboys", "dallas": "dallas cowboys",
+    "commanders": "washington commanders", "washington commanders": "washington commanders",
+    "bears": "chicago bears", "chicago bears": "chicago bears",
+    "lions": "detroit lions", "detroit lions": "detroit lions",
+    "packers": "green bay packers", "green bay packers": "green bay packers", "green bay": "green bay packers",
+    "vikings": "minnesota vikings", "minnesota vikings": "minnesota vikings",
+    "falcons": "atlanta falcons", "atlanta falcons": "atlanta falcons",
+    "panthers": "carolina panthers", "carolina panthers": "carolina panthers", "carolina": "carolina panthers",
+    "saints": "new orleans saints", "new orleans saints": "new orleans saints", "new orleans": "new orleans saints",
+    "buccaneers": "tampa bay buccaneers", "tampa bay buccaneers": "tampa bay buccaneers", "bucs": "tampa bay buccaneers",
+    "rams": "los angeles rams", "los angeles rams": "los angeles rams", "la rams": "los angeles rams",
+    "49ers": "san francisco 49ers", "san francisco 49ers": "san francisco 49ers", "sf 49ers": "san francisco 49ers",
+    "seahawks": "seattle seahawks", "seattle seahawks": "seattle seahawks", "seattle": "seattle seahawks",
+
+    # NBL (澳洲職籃)
+    "melbourne united": "melbourne united", "melbourne": "melbourne united",
+    "se melbourne phoenix": "se melbourne phoenix", "south east melbourne phoenix": "se melbourne phoenix", "s.e. melbourne phoenix": "se melbourne phoenix", "sem phoenix": "se melbourne phoenix",
+    "sydney kings": "sydney kings",
+    "perth wildcats": "perth wildcats", "wildcats": "perth wildcats", "perth": "perth wildcats",
+    "illawarra hawks": "illawarra hawks", "illawarra": "illawarra hawks",
+    "tasmania jackjumpers": "tasmania jackjumpers", "tasmania": "tasmania jackjumpers", "jackjumpers": "tasmania jackjumpers",
+    "new zealand breakers": "new zealand breakers", "nz breakers": "new zealand breakers", "breakers": "new zealand breakers",
+    "brisbane bullets": "brisbane bullets", "bullets": "brisbane bullets", "brisbane": "brisbane bullets",
+    "adelaide 36ers": "adelaide 36ers", "36ers": "adelaide 36ers", "adelaide": "adelaide 36ers",
+    "cairns taipans": "cairns taipans", "cairns": "cairns taipans", "taipans": "cairns taipans",
+
+    # CS2 / CS
+    "natus vincere": "natus vincere", "navi": "natus vincere",
+    "faze": "faze clan", "faze clan": "faze clan",
+    "team vitality": "team vitality", "vitality": "team vitality",
+    "team spirit": "team spirit", "spirit": "team spirit",
+    "mouz": "mouz", "mousesports": "mouz",
+    "astralis": "astralis",
+    "virtus.pro": "virtus.pro", "virtus pro": "virtus.pro", "vp": "virtus.pro",
+    "team liquid": "team liquid", "liquid": "team liquid",
+    "complexity": "complexity gaming", "complexity gaming": "complexity gaming", "col": "complexity gaming",
+    "heroic": "heroic",
+    "eternal fire": "eternal fire",
+    "furia": "furia esports", "furia esports": "furia esports",
+    "big": "big", "big clan": "big",
+    "pain": "pain gaming", "pain gaming": "pain gaming",
+    "the mongolz": "the mongolz", "mongolz": "the mongolz",
+    "ence": "ence",
+    "imperial esports": "imperial esports", "imperial": "imperial esports",
+    "m80": "m80",
+    "saw": "saw",
+    "9z": "9z team", "9z team": "9z team",
+    "gamerlegion": "gamerlegion",
+    "sangal": "sangal esports", "sangal esports": "sangal esports",
+    "3dmax": "3dmax",
+    "nemiga": "nemiga gaming", "nemiga gaming": "nemiga gaming",
+    "rare atom": "rare atom",
+    "lynn vision": "lynn vision",
+    "tyloo": "tyloo",
 }
 
 CANONICAL_TO_ZH: Dict[str, str] = {
@@ -245,6 +392,78 @@ CANONICAL_TO_ZH: Dict[str, str] = {
     "fc barcelona": "巴塞隆納", "atletico madrid": "馬競", "bayern munich": "拜仁慕尼黑",
     "borussia dortmund": "多特蒙德", "inter milan": "國米", "ac milan": "AC米蘭",
     "juventus": "尤文圖斯", "paris saint germain": "巴黎聖日耳曼",
+    # NFL
+    "new england patriots": "愛國者",
+    "buffalo bills": "比爾",
+    "miami dolphins": "海豚",
+    "new york jets": "噴射機",
+    "baltimore ravens": "烏鴉",
+    "cincinnati bengals": "孟加拉虎",
+    "cleveland browns": "布朗",
+    "pittsburgh steelers": "鋼人",
+    "houston texans": "德州人",
+    "indianapolis colts": "小馬",
+    "jacksonville jaguars": "捷豹",
+    "tennessee titans": "泰坦",
+    "denver broncos": "野馬",
+    "kansas city chiefs": "酋長",
+    "las vegas raiders": "突擊者",
+    "los angeles chargers": "電光",
+    "dallas cowboys": "牛仔",
+    "new york giants": "巨人(美足)",
+    "philadelphia eagles": "老鷹(美足)",
+    "washington commanders": "司令",
+    "chicago bears": "熊隊",
+    "detroit lions": "獅隊",
+    "green bay packers": "包裝工",
+    "minnesota vikings": "維京人",
+    "atlanta falcons": "獵鷹",
+    "carolina panthers": "黑豹",
+    "new orleans saints": "聖徒",
+    "tampa bay buccaneers": "海盜(美足)",
+    "arizona cardinals": "紅雀(美足)",
+    "los angeles rams": "公羊",
+    "san francisco 49ers": "49人",
+    "seattle seahawks": "海鷹",
+    # NBL
+    "melbourne united": "墨爾本聯",
+    "se melbourne phoenix": "東南墨爾本鳳凰",
+    "sydney kings": "雪梨國王",
+    "perth wildcats": "伯斯野貓",
+    "illawarra hawks": "伊拉瓦拉老鷹",
+    "tasmania jackjumpers": "跳傘蟻",
+    "new zealand breakers": "紐西蘭破壞者",
+    "brisbane bullets": "布里斯本子彈",
+    "adelaide 36ers": "阿得雷德36人",
+    "cairns taipans": "凱恩斯太攀蛇",
+    # CS
+    "natus vincere": "NaVi",
+    "faze clan": "FaZe",
+    "team vitality": "Vitality",
+    "team spirit": "Spirit",
+    "mouz": "MOUZ",
+    "astralis": "Astralis",
+    "virtus.pro": "Virtus.pro",
+    "team liquid": "Liquid",
+    "complexity gaming": "Complexity",
+    "heroic": "Heroic",
+    "eternal fire": "Eternal Fire",
+    "furia esports": "FURIA",
+    "big": "BIG",
+    "pain gaming": "paiN",
+    "the mongolz": "The MongolZ",
+    "ence": "ENCE",
+    "imperial esports": "Imperial",
+    "m80": "M80",
+    "saw": "SAW",
+    "9z team": "9z",
+    "gamerlegion": "GamerLegion",
+    "sangal esports": "Sangal",
+    "3dmax": "3DMAX",
+    "nemiga gaming": "Nemiga",
+    "rare atom": "Rare Atom",
+    "lynn vision": "Lynn Vision",
+    "tyloo": "TYLOO",
 }
 
 
@@ -261,17 +480,83 @@ def clean_team_text(name: str) -> str:
 def canonicalize_team(name: str, league_hint: str = "") -> str:
     """將任意語言（繁中 / 英文簡寫 / 全名）隊名轉換為標準 Canonical Key"""
     raw_zh = re.sub(r"\([^)]*\)", "", name or "").strip()
+    l_up = league_hint.upper()
     if raw_zh in ZH_TO_CANONICAL:
-        # 若為中職/足球與 NBA/MLB 重複名稱，按聯賽提示消歧義
-        if raw_zh == "勇士" and league_hint.upper() == "MLB":
+        # 重複名稱按聯賽提示消歧義
+        if raw_zh == "勇士" and l_up == "MLB":
             return "atlanta braves"
-        if raw_zh == "巨人" and league_hint.upper() == "NPB":
+        if raw_zh == "巨人" and l_up == "NPB":
             return "yomiuri giants"
+        if raw_zh in ("老鷹", "費城老鷹") and l_up == "NFL":
+            return "philadelphia eagles"
+        if raw_zh in ("巨人", "紐約巨人") and l_up == "NFL":
+            return "new york giants"
+        if raw_zh in ("海盜", "坦帕灣海盜") and l_up == "NFL":
+            return "tampa bay buccaneers"
+        if raw_zh in ("紅雀", "亞利桑那紅雀") and l_up == "NFL":
+            return "arizona cardinals"
+        if raw_zh in ("國王", "雪梨國王") and l_up == "NBL":
+            return "sydney kings"
+        if raw_zh in ("老鷹", "伊拉瓦拉老鷹") and l_up == "NBL":
+            return "illawarra hawks"
         return ZH_TO_CANONICAL[raw_zh]
 
     cleaned = clean_team_text(name)
     if not cleaned:
         return ""
+
+    if l_up == "NFL":
+        nfl_abbr = {
+            "atl": "atlanta falcons", "falcons": "atlanta falcons",
+            "lac": "los angeles chargers", "chargers": "los angeles chargers",
+            "car": "carolina panthers", "panthers": "carolina panthers",
+            "tb": "tampa bay buccaneers", "bucs": "tampa bay buccaneers", "buccaneers": "tampa bay buccaneers",
+            "ari": "arizona cardinals", "cardinals": "arizona cardinals",
+            "nyg": "new york giants", "giants": "new york giants",
+            "phi": "philadelphia eagles", "eagles": "philadelphia eagles",
+            "chi": "chicago bears", "bears": "chicago bears",
+            "det": "detroit lions", "lions": "detroit lions",
+            "hou": "houston texans", "texans": "houston texans",
+            "ind": "indianapolis colts", "colts": "indianapolis colts",
+            "mia": "miami dolphins", "dolphins": "miami dolphins",
+            "min": "minnesota vikings", "vikings": "minnesota vikings",
+            "ne": "new england patriots", "patriots": "new england patriots",
+            "no": "new orleans saints", "saints": "new orleans saints",
+            "pit": "pittsburgh steelers", "steelers": "pittsburgh steelers",
+            "sf": "san francisco 49ers", "49ers": "san francisco 49ers",
+            "sea": "seattle seahawks", "seahawks": "seattle seahawks",
+            "ten": "tennessee titans", "titans": "tennessee titans",
+            "was": "washington commanders", "commanders": "washington commanders",
+            "kc": "kansas city chiefs", "chiefs": "kansas city chiefs",
+            "buf": "buffalo bills", "bills": "buffalo bills",
+            "bal": "baltimore ravens", "ravens": "baltimore ravens",
+            "cin": "cincinnati bengals", "bengals": "cincinnati bengals",
+            "cle": "cleveland browns", "browns": "cleveland browns",
+            "dal": "dallas cowboys", "cowboys": "dallas cowboys",
+            "den": "denver broncos", "broncos": "denver broncos",
+            "gb": "green bay packers", "packers": "green bay packers",
+            "jax": "jacksonville jaguars", "jaguars": "jacksonville jaguars",
+            "lv": "las vegas raiders", "raiders": "las vegas raiders",
+            "lar": "los angeles rams", "rams": "los angeles rams",
+            "nyj": "new york jets", "jets": "new york jets",
+        }
+        if cleaned in nfl_abbr:
+            return nfl_abbr[cleaned]
+    elif l_up == "NBL":
+        nbl_abbr = {
+            "kings": "sydney kings", "sydney": "sydney kings", "sydney kings": "sydney kings",
+            "hawks": "illawarra hawks", "illawarra": "illawarra hawks", "illawarra hawks": "illawarra hawks",
+            "wildcats": "perth wildcats", "perth": "perth wildcats", "perth wildcats": "perth wildcats",
+            "united": "melbourne united", "melbourne": "melbourne united", "melbourne united": "melbourne united",
+            "phoenix": "se melbourne phoenix", "sem phoenix": "se melbourne phoenix",
+            "breakers": "new zealand breakers", "nz breakers": "new zealand breakers",
+            "bullets": "brisbane bullets", "brisbane": "brisbane bullets",
+            "36ers": "adelaide 36ers", "adelaide": "adelaide 36ers",
+            "taipans": "cairns taipans", "cairns": "cairns taipans",
+            "jackjumpers": "tasmania jackjumpers", "tasmania": "tasmania jackjumpers",
+        }
+        if cleaned in nbl_abbr:
+            return nbl_abbr[cleaned]
 
     # 先精確查英文表
     if cleaned in EN_TO_CANONICAL:

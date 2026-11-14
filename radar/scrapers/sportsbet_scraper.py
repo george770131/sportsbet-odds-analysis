@@ -13,6 +13,9 @@ from ..matcher import canonicalize_team, get_zh_display_name
 
 SPORTSBET_QUERIES = [
     ("nba", "NBA", "basketball"),
+    ("nfl", "NFL", "football"),
+    ("nbl", "NBL", "basketball"),
+    ("cs", "CS", "esports"),
     ("mlb", "MLB", "baseball"),
     ("cpbl", "CPBL", "baseball"),
     ("epl", "EPL", "soccer"),

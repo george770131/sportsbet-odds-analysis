@@ -19,7 +19,7 @@ class PolymarketRadarScraper:
     def fetch_quotes(self, sport_filters: Optional[List[str]] = None) -> tuple[List[SourceOddsQuote], Dict[str, Any]]:
         t0 = time.time()
         quotes: List[SourceOddsQuote] = []
-        filters = sport_filters or ["nba", "mlb", "epl", "ucl", "lol"]
+        filters = sport_filters or ["nba", "nfl", "nbl", "cs", "mlb", "epl", "ucl", "lol"]
         seen_slugs = set()
 
         errors = []
@@ -87,12 +87,14 @@ class PolymarketRadarScraper:
         s = sf.lower()
         if s in ("nba", "basketball", "nbl"):
             return "basketball"
+        if s in ("nfl", "football"):
+            return "football"
+        if s in ("cs", "lol", "esports"):
+            return "esports"
         if s in ("mlb", "baseball", "cpbl", "npb"):
             return "baseball"
         if s in ("epl", "ucl", "soccer", "laliga"):
             return "soccer"
-        if s in ("lol", "esports"):
-            return "esports"
         if s in ("nhl", "hockey"):
             return "hockey"
         return "other"

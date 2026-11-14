@@ -13,7 +13,8 @@ from ..matcher import canonicalize_team, get_zh_display_name
 
 # Betfair EventTypeId -> 運動類別
 BETFAIR_TARGETS = [
-    {"eventTypeId": 7522, "sport": "basketball", "league_keywords": {"NBA": "NBA"}},
+    {"eventTypeId": 6423, "sport": "football", "league_keywords": {"NFL": "NFL"}},
+    {"eventTypeId": 7522, "sport": "basketball", "league_keywords": {"NBA": "NBA", "Australian NBL": "NBL", "NBL": "NBL"}},
     {"eventTypeId": 1, "sport": "soccer", "league_keywords": {
         "English Premier League": "EPL",
         "Premier League": "EPL",
@@ -22,7 +23,10 @@ BETFAIR_TARGETS = [
     }},
     {"eventTypeId": 7511, "sport": "baseball", "league_keywords": {"Major League Baseball": "MLB", "MLB": "MLB", "NPB": "NPB", "CPBL": "CPBL"}},
     {"eventTypeId": 7524, "sport": "hockey", "league_keywords": {"NHL": "NHL"}},
-    {"eventTypeId": 27454571, "sport": "esports", "league_keywords": {"League of Legends": "LOL", "LoL": "LOL", "LCK": "LOL", "LPL": "LOL", "Worlds": "LOL"}},
+    {"eventTypeId": 27454571, "sport": "esports", "league_keywords": {
+        "League of Legends": "LOL", "LoL": "LOL", "LCK": "LOL", "LPL": "LOL", "Worlds": "LOL",
+        "Counter-Strike": "CS", "CS2": "CS", "CS:GO": "CS", "BLAST": "CS", "PGL": "CS", "IEM": "CS"
+    }},
 ]
 
 

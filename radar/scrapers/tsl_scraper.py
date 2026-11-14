@@ -16,6 +16,8 @@ from ..matcher import canonicalize_team, get_zh_display_name
 # Playsport 聯盟 ID 對應表
 PLAYSPORT_LEAGUES = [
     {"aid": 3, "league": "NBA", "sport": "basketball", "three_way": False},
+    {"aid": 93, "league": "NFL", "sport": "football", "three_way": False},
+    {"aid": 12, "league": "NBL", "sport": "basketball", "three_way": False},
     {"aid": 4, "league": "SOCCER", "sport": "soccer", "three_way": True},
     {"aid": 91, "league": "NHL", "sport": "hockey", "three_way": False},
     {"aid": 1, "league": "MLB", "sport": "baseball", "three_way": False},

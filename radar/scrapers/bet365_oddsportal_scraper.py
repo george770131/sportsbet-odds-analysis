@@ -15,6 +15,9 @@ from ..matcher import canonicalize_team, get_zh_display_name
 
 ODDSPORTAL_LEAGUES = [
     {"league": "NBA", "sport": "basketball", "url": "https://www.oddsportal.com/basketball/usa/nba/", "three_way": False},
+    {"league": "NFL", "sport": "football", "url": "https://www.oddsportal.com/american-football/usa/nfl/", "three_way": False},
+    {"league": "NBL", "sport": "basketball", "url": "https://www.oddsportal.com/basketball/australia/nbl/", "three_way": False},
+    {"league": "CS", "sport": "esports", "url": "https://www.oddsportal.com/esports/counter-strike/", "three_way": False},
     {"league": "NHL", "sport": "hockey", "url": "https://www.oddsportal.com/hockey/usa/nhl/", "three_way": False},
     {"league": "EPL", "sport": "soccer", "url": "https://www.oddsportal.com/football/england/premier-league/", "three_way": True},
     {"league": "UCL", "sport": "soccer", "url": "https://www.oddsportal.com/football/europe/champions-league/", "three_way": True},

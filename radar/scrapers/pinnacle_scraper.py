@@ -13,7 +13,8 @@ from ..matcher import canonicalize_team, get_zh_display_name
 
 # Pinnacle Sport IDs
 PINNACLE_SPORTS = [
-    (4, "basketball"),   # NBA / 歐籃
+    (15, "football"),    # NFL
+    (4, "basketball"),   # NBA / 歐籃 / NBL
     (3, "baseball"),     # MLB / NPB / CPBL
     (29, "soccer"),      # EPL / UCL / LaLiga / etc.
     (12, "esports"),     # LoL / CS2 / etc.
@@ -22,6 +23,8 @@ PINNACLE_SPORTS = [
 
 LEAGUE_MAP = {
     "NBA": "NBA",
+    "NFL": "NFL",
+    "Australia - NBL": "NBL",
     "MLB": "MLB",
     "NPB": "NPB",
     "CPBL": "CPBL",
@@ -92,8 +95,14 @@ class PinnacleRadarScraper:
         if lname in LEAGUE_MAP:
             return LEAGUE_MAP[lname]
         up = lname.upper()
+        if sport_name == "football" and "NFL" in up:
+            return "NFL"
         if sport_name == "esports" and ("LOL" in up or "LEAGUE OF LEGENDS" in up or "LCK" in up or "LPL" in up or "WORLDS" in up):
             return "LOL"
+        if sport_name == "esports" and ("CS2" in up or "COUNTER-STRIKE" in up or "CS:GO" in up or "CS " in up or up == "CS"):
+            return "CS"
+        if sport_name == "basketball" and ("NBL" in up or "AUSTRALIA - NBL" in up):
+            return "NBL"
         if sport_name == "basketball" and up == "NBA":
             return "NBA"
         if sport_name == "baseball" and any(k in up for k in ["MLB", "NPB", "CPBL"]):

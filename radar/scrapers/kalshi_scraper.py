@@ -12,6 +12,9 @@ from ..matcher import canonicalize_team, get_zh_display_name
 
 KALSHI_SERIES = [
     ("KXNBAGAME", "NBA", "basketball"),
+    ("KXNFLGAME", "NFL", "football"),
+    ("KXNBLGAME", "NBL", "basketball"),
+    ("KXCS2GAME", "CS", "esports"),
     ("KXMLBGAME", "MLB", "baseball"),
     ("KXNHLGAME", "NHL", "hockey"),
     ("KXEPLGAME", "EPL", "soccer"),
