@@ -46,6 +46,10 @@ class OddsComparisonEngine:
                 rep: SourceOddsQuote = grp["rep"]
                 if rep.market_type != tq.market_type or rep.sport != tq.sport:
                     continue
+                # 嚴格聯賽隔離 (僅足球在 TSL 為通用 SOCCER 時允許匹配)
+                if rep.league != tq.league:
+                    if not (rep.sport == "soccer" and (rep.league == "SOCCER" or tq.league == "SOCCER")):
+                        continue
                 if len(rep.raw_odds) != len(tq.raw_odds):
                     continue
                 align = match_two_teams(rep.home_team, rep.away_team, tq.home_team, tq.away_team, rep.league)
@@ -75,6 +79,10 @@ class OddsComparisonEngine:
                     continue
                 if bq.market_type != rep.market_type or bq.sport != rep.sport:
                     continue
+                # 嚴格聯賽隔離：不同聯賽絕對不能跨界對齊 (例如 LOL 絕不能與 CS 對齊、NBA 絕不能與 NBL 對齊)
+                if rep.league != bq.league:
+                    if not (rep.sport == "soccer" and (rep.league == "SOCCER" or bq.league == "SOCCER")):
+                        continue
                 if len(bq.raw_odds) != n_legs:
                     continue
                 align = match_two_teams(rep.home_team, rep.away_team, bq.home_team, bq.away_team, rep.league)

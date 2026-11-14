@@ -45,14 +45,34 @@ class SportsbetRadarScraper:
                 t2 = str(m.get("team2") or names[-1]).strip()
                 dv = devig_decimal_odds(vals, use_power=True)
 
+                # 電競聯賽精確檢驗：避免 Sportsbet 在無 CS 盤口時導向一般電競而將 LoL (如 BLG/Gen.G) 或 eSoccer 誤標為 CS
+                sub = (m.get("league") or "").lower()
+                route_slug = (route_info.get("slug") or q_str).lower()
+                detected_league = league
+                if sport == "esports":
+                    if any(k in sub for k in ["cs2", "counter-strike", "counter strike", "cs:go"]) or "cs " in sub:
+                        detected_league = "CS"
+                    elif any(k in sub for k in ["lol", "league of legends", "lck", "lpl", "worlds"]):
+                        detected_league = "LOL"
+                    elif any(k in sub for k in ["esoccer", "ebasketball", "dota"]):
+                        detected_league = "OTHER"
+                    elif "lol" in route_slug:
+                        detected_league = "LOL"
+                    elif "counter-strike" in route_slug:
+                        detected_league = "CS"
+
+                    # 嚴格過濾：若查詢目標為特定聯賽 (LOL 或 CS)，但賽事非該遊戲，則跳過避免污染
+                    if league in ("LOL", "CS") and detected_league != league:
+                        continue
+
                 out.append(SourceOddsQuote(
                     source="sportsbet",
-                    league=league,
+                    league=detected_league,
                     sport=sport,
                     home_team=t1,
                     away_team=t2,
-                    home_team_zh=get_zh_display_name(canonicalize_team(t1, league), t1),
-                    away_team_zh=get_zh_display_name(canonicalize_team(t2, league), t2),
+                    home_team_zh=get_zh_display_name(canonicalize_team(t1, detected_league), t1),
+                    away_team_zh=get_zh_display_name(canonicalize_team(t2, detected_league), t2),
                     start_time=str(m.get("time") or ""),
                     market_type="ML",
                     outcome_names=names,

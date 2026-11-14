@@ -182,9 +182,9 @@ class PolymarketClient:
                 sport_category = "NBL"
             else:
                 sport_category = "NBA"
-        elif any("cs2" in t or "counter strike" in t or "counter-strike" in t or "cs:go" in t for t in tags):
+        elif any("cs2" in t or "counter strike" in t or "counter-strike" in t or "cs:go" in t for t in tags) or "cs2-" in slug or "cs-" in slug:
             sport_category = "CS"
-        elif any("lol" in t or "league of legends" in t or "esport" in t for t in tags):
+        elif any("lol" in t or "league of legends" in t for t in tags) or "lol-" in slug:
             sport_category = "LoL"
         elif any("mlb" in t or "baseball" in t for t in tags):
             sport_category = "MLB"
