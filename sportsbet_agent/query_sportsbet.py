@@ -303,17 +303,19 @@ def fetch_sportsbet_matches(user_query: str, save_screenshot: bool = True) -> tu
                     elif m2:
                         t1 = m2.group(1).strip()
                         t2 = m2.group(2).strip()
+                        btn1 = m2.group(3).strip()
                         o1 = m2.group(4).strip()
+                        btn2 = m2.group(5).strip()
                         o2 = m2.group(6).strip()
                         matches.append({
                             "time": match_time_full,
                             "league": sub_league,
                             "matchup": f"{t1} vs {t2}",
-                            "team1": t1,
-                            "team2": t2,
+                            "team1": btn1,
+                            "team2": btn2,
                             "odds": [
-                                {"name": t1, "val": o1},
-                                {"name": t2, "val": o2}
+                                {"name": btn1, "val": o1},
+                                {"name": btn2, "val": o2}
                             ],
                             "extra": extra_info
                         })

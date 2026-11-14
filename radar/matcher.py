@@ -329,8 +329,8 @@ EN_TO_CANONICAL: Dict[str, str] = {
     "seahawks": "seattle seahawks", "seattle seahawks": "seattle seahawks", "seattle": "seattle seahawks",
 
     # NBL (澳洲職籃)
-    "melbourne united": "melbourne united", "melbourne": "melbourne united",
-    "se melbourne phoenix": "se melbourne phoenix", "south east melbourne phoenix": "se melbourne phoenix", "s.e. melbourne phoenix": "se melbourne phoenix", "sem phoenix": "se melbourne phoenix",
+    "melbourne united": "melbourne united",
+    "se melbourne phoenix": "se melbourne phoenix", "south east melbourne phoenix": "se melbourne phoenix", "s.e. melbourne phoenix": "se melbourne phoenix", "s e melbourne phoenix": "se melbourne phoenix", "sem phoenix": "se melbourne phoenix", "melbourne phoenix": "se melbourne phoenix",
     "sydney kings": "sydney kings",
     "perth wildcats": "perth wildcats", "wildcats": "perth wildcats", "perth": "perth wildcats",
     "illawarra hawks": "illawarra hawks", "illawarra": "illawarra hawks",
@@ -472,6 +472,9 @@ def clean_team_text(name: str) -> str:
         return ""
     # 剝除括號附註 (例如 "洛杉磯道奇 (LAD)")
     s = re.sub(r"\([^)]*\)", "", name).strip().lower()
+    # 將 S.E. / S. E. / S E 標準化為 se
+    s = re.sub(r"\bs\s*\.\s*e\s*\.\s*", "se ", s)
+    s = re.sub(r"\bs\s+e\s+", "se ", s)
     s = re.sub(r"[^\w\s\u4e00-\u9fff]", " ", s)
     s = re.sub(r"\s+", " ", s).strip()
     return s
@@ -543,12 +546,16 @@ def canonicalize_team(name: str, league_hint: str = "") -> str:
         if cleaned in nfl_abbr:
             return nfl_abbr[cleaned]
     elif l_up == "NBL":
+        if "phoenix" in cleaned:
+            return "se melbourne phoenix"
+        if "united" in cleaned:
+            return "melbourne united"
         nbl_abbr = {
             "kings": "sydney kings", "sydney": "sydney kings", "sydney kings": "sydney kings",
             "hawks": "illawarra hawks", "illawarra": "illawarra hawks", "illawarra hawks": "illawarra hawks",
             "wildcats": "perth wildcats", "perth": "perth wildcats", "perth wildcats": "perth wildcats",
-            "united": "melbourne united", "melbourne": "melbourne united", "melbourne united": "melbourne united",
-            "phoenix": "se melbourne phoenix", "sem phoenix": "se melbourne phoenix",
+            "melbourne united": "melbourne united",
+            "se melbourne phoenix": "se melbourne phoenix", "sem phoenix": "se melbourne phoenix",
             "breakers": "new zealand breakers", "nz breakers": "new zealand breakers",
             "bullets": "brisbane bullets", "brisbane": "brisbane bullets",
             "36ers": "adelaide 36ers", "adelaide": "adelaide 36ers",
@@ -579,6 +586,37 @@ def get_zh_display_name(canonical: str, fallback: str = "") -> str:
     return fallback or canonical.title()
 
 
+def is_same_team(a: str, b: str) -> bool:
+    """判斷兩個隊名是否指向同一支隊伍（嚴格避免同城球隊誤判，如 Melbourne United vs SE Melbourne Phoenix）"""
+    if not a or not b:
+        return False
+    if a == b:
+        return True
+
+    # 絕不可將 united 或 city 列為 stopword，因為這是球隊的核心特徵（如 Melbourne United, Manchester City）
+    stop = {"fc", "afc", "sc", "cf", "esports", "gaming", "team", "club"}
+    ta = set(a.split()) - stop
+    tb = set(b.split()) - stop
+    if not ta or not tb:
+        return False
+    if ta == tb:
+        return True
+
+    # 若兩隊各有相異的特徵詞（例如 'phoenix' vs 'united'，或 'clippers' vs 'lakers'），絕對不同！
+    diff_a = ta - tb
+    diff_b = tb - ta
+    if diff_a and diff_b:
+        return False
+
+    # 僅允許單向完全包含（例如 "phoenix" 是 "se melbourne phoenix" 的子集）
+    intersect = ta & tb
+    if intersect and (ta.issubset(tb) or tb.issubset(ta)):
+        if max(len(w) for w in intersect) >= 4:
+            return True
+
+    return False
+
+
 def match_two_teams(
     team1_a: str, team2_a: str,
     team1_b: str, team2_b: str,
@@ -598,18 +636,16 @@ def match_two_teams(
     if not all([c1_a, c2_a, c1_b, c2_b]):
         return None
 
-    def _same(a: str, b: str) -> bool:
-        if a == b:
-            return True
-        stop = {"fc", "afc", "sc", "cf", "esports", "gaming", "team", "club", "city", "united"}
-        ta = set(a.split()) - stop
-        tb = set(b.split()) - stop
-        if ta and tb and (ta == tb or (len(ta) >= 1 and len(tb) >= 1 and (ta.issubset(tb) or tb.issubset(ta)))):
-            return True
-        return False
-
-    if _same(c1_a, c1_b) and _same(c2_a, c2_b):
+    # 1. 優先檢查精確相等 (Exact Match)
+    if c1_a == c1_b and c2_a == c2_b:
         return (0, 1)
-    if _same(c1_a, c2_b) and _same(c2_a, c1_b):
+    if c1_a == c2_b and c2_a == c1_b:
         return (1, 0)
+
+    # 2. 嚴格特徵詞模糊比對 (Fuzzy Match)
+    if is_same_team(c1_a, c1_b) and is_same_team(c2_a, c2_b):
+        return (0, 1)
+    if is_same_team(c1_a, c2_b) and is_same_team(c2_a, c1_b):
+        return (1, 0)
+
     return None
