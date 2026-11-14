@@ -7,6 +7,9 @@
 - **7 平台架構**：
   - **5 家國際參考指標**：Polymarket、Kalshi、Pinnacle（免 API Key 公開盤口）、Betfair Exchange (AU)、Bet365（經 Oddsportal 線路），各自獨立以冪次法（Power Method）去水後加權計算真實勝率共識，並標註 `有效參考家數：X/5`（允許 1/5~5/5 皆納入比價）。
   - **2 家可投注目標盤口**：台灣運彩 (TSL) 與澳洲 Sportsbet。台灣運彩非單場（需串關）盤口出現 +EV 時照常顯示，並標註 `⚠️ 需串關`。
+- **Telegram +EV 即時推播規範**：
+  - **有效參考家數門檻**：僅當 `有效參考家數 >= 3/5` 時才觸發 Telegram 訊息推播（避免 1/5 或 2/5 樣本過少產生雜訊）。
+  - **台彩單場嚴格過濾**：台灣運彩需串關（`⚠️ 需串關` / `single_game_allowed == False`）之盤口一律不發送 Telegram 訊息（保留於網頁端供手動查看）；台彩僅在開放「單場可下」時才允許推播。澳洲 Sportsbet 因本身可直接單場下注不受此限。
 - **網頁 UI 規範**：維持 **亮色系（Bright / Light Mode `#F8FAFC` / `#FFFFFF`）Mobile-First 手機優先版面**。展開明細表須同時包含 5 家參考指標與 2 家可投注盤口（共 7 列），欄位標題為「平台來源｜原始賠率｜水錢%｜去水勝率」。
 - **反爬蟲與安全合規**：禁止對 `sportslottery.com.tw` 或任何站點繞過 Cloudflare Turnstile / CAPTCHA 驗證；僅使用公開無驗證閘門的資料來源。
 
