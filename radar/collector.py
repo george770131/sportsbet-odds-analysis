@@ -81,8 +81,14 @@ class RadarCollector:
         pos_cards = [c for c in cards if c["is_positive_ev"]]
         radar_db.set_meta("positive_ev_cards", str(len(pos_cards)), now_str)
 
-        # 只要發現高信心正 +EV (ev_pct > 0, 至少 3/5 家參考指標且台彩非需串關) 即立即推播完整 7 平台明細卡片至 Telegram
-        alerts_sent = self._dispatch_telegram_alerts(pos_cards, min_ev=0.01, min_bench=3)
+        # 只要發現高信心正 +EV (ev_pct >= +2.0%, 共識勝率 40%~80%, 至少 3/5 家參考指標且台彩非需串關) 即立即推播完整 7 平台明細卡片至 Telegram
+        alerts_sent = self._dispatch_telegram_alerts(
+            pos_cards,
+            min_ev=2.0,
+            min_bench=3,
+            min_prob=0.40,
+            max_prob=0.80,
+        )
 
         return {
             "synced_at": now_str,
@@ -202,7 +208,14 @@ class RadarCollector:
             lines.append(f"\n📱 <a href=\"{tunnel_url}\">點此開啟 7 盤定量比價雷達</a>")
         return "\n".join(lines)
 
-    def _dispatch_telegram_alerts(self, pos_cards: List[Dict[str, Any]], min_ev: float = 0.01, min_bench: int = 3) -> int:
+    def _dispatch_telegram_alerts(
+        self,
+        pos_cards: List[Dict[str, Any]],
+        min_ev: float = 2.0,
+        min_bench: int = 3,
+        min_prob: float = 0.40,
+        max_prob: float = 0.80,
+    ) -> int:
         cfg = load_agent_config()
         token = cfg.get("telegram_bot_token")
         chat_id = cfg.get("allowed_chat_id")
@@ -215,11 +228,16 @@ class RadarCollector:
 
         to_send = []
         for c in pos_cards:
-            # 1. 有效參考家數必須 >= 3/5 (過濾掉 1/5, 2/5 這種指標樣本不足的初步盤口)
+            # 1. 期望值必須 >= min_ev (+2.0%) 且有效參考家數必須 >= min_bench (3/5)
             if c["ev_pct"] < min_ev or c["valid_benchmark_count"] < min_bench:
                 continue
 
-            # 2. 台灣運彩若為「需串關」盤口，不發送 Telegram 訊息 (僅在網頁端保留供手動檢視)
+            # 2. 共識預估勝率必須在 40% ~ 80% 之間 (0.40 <= consensus_prob <= 0.80)
+            prob = float(c.get("consensus_prob", 0.0))
+            if round(prob, 4) < min_prob or round(prob, 4) > max_prob:
+                continue
+
+            # 3. 台灣運彩若為「需串關」盤口，不發送 Telegram 訊息 (僅在網頁端保留供手動檢視)
             if c.get("target_book") == "tsl" and (c.get("single_game_allowed") is False or c.get("min_parlay_legs", 1) > 1):
                 continue
 
