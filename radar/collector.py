@@ -170,13 +170,15 @@ class RadarCollector:
             ("bet365", "Bet365"),
         ]:
             info = benchmarks.get(b_key, {})
+            url = info.get("url")
+            link_label = f'<a href="{url}">{label}</a>' if url else label
             if info.get("available") and len(info.get("raw_odds", [])) > idx:
                 raw_o = info["raw_odds"][idx]
                 vig = info.get("vig_pct", 0.0)
                 prob = info["true_probs_pct"][idx]
-                lines.append(f"• {label} [指標]：<code>{raw_o:.2f}</code>｜<code>{vig:.1f}%</code>｜<b><code>{prob:.1f}%</code></b>")
+                lines.append(f"• {link_label} [指標]：<code>{raw_o:.2f}</code>｜<code>{vig:.1f}%</code>｜<b><code>{prob:.1f}%</code></b>")
             else:
-                lines.append(f"• {label} [指標]：未開盤")
+                lines.append(f"• {link_label} [指標]：未開盤")
 
         targets = c.get("targets", {})
         for t_key, label in [
@@ -184,6 +186,8 @@ class RadarCollector:
             ("sportsbet", "🇦🇺 澳洲 Sportsbet"),
         ]:
             info = targets.get(t_key, {})
+            url = info.get("url")
+            link_label = f'<a href="{url}"><b>{label}</b></a>' if url else f'<b>{label}</b>'
             if info.get("available") and len(info.get("raw_odds", [])) > idx:
                 raw_o = info["raw_odds"][idx]
                 vig = info.get("vig_pct", 0.0)
@@ -200,9 +204,9 @@ class RadarCollector:
                         extra_tag = " ⚠️需串關"
                     elif info.get("single_game_allowed") is True:
                         extra_tag = " 單場"
-                lines.append(f"• <b>{label}</b> [可投{extra_tag}]：<b><code>{raw_o:.2f}</code></b>｜<code>{vig:.1f}%</code>｜<b><code>{prob_str}</code></b>")
+                lines.append(f"• {link_label} [可投{extra_tag}]：<b><code>{raw_o:.2f}</code></b>｜<code>{vig:.1f}%</code>｜<b><code>{prob_str}</code></b>")
             else:
-                lines.append(f"• {label} [可投]：未開盤")
+                lines.append(f"• {link_label} [可投]：未開盤")
 
         if tunnel_url:
             lines.append(f"\n📱 <a href=\"{tunnel_url}\">點此開啟 7 盤定量比價雷達</a>")

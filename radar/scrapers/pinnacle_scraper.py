@@ -179,6 +179,8 @@ class PinnacleRadarScraper:
                     if any(o <= 1.0 for o in odds_list):
                         continue
                     dv = devig_decimal_odds(odds_list, use_power=True)
+                    mid = m.get("id")
+                    pin_url = f"https://www.pinnacle.com/zh-tw/{sport_name}/matchups/{mid}" if mid else "https://www.pinnacle.com/zh-tw/"
                     quotes.append(SourceOddsQuote(
                         source="pinnacle",
                         league=league_code,
@@ -195,6 +197,7 @@ class PinnacleRadarScraper:
                         fair_odds=dv["fair_odds"],
                         vig_pct=dv["vig_pct"],
                         is_live=bool(m.get("isLive")),
+                        match_url=pin_url,
                     ))
             elif mtype == "spread" and "home" in by_des and "away" in by_des:
                 o_h = american_to_decimal(by_des["home"]["price"])
@@ -203,6 +206,8 @@ class PinnacleRadarScraper:
                 if h_pts is None or o_h <= 1.0 or o_a <= 1.0:
                     continue
                 dv = devig_decimal_odds([o_h, o_a], use_power=True)
+                mid = m.get("id")
+                pin_url = f"https://www.pinnacle.com/zh-tw/{sport_name}/matchups/{mid}" if mid else "https://www.pinnacle.com/zh-tw/"
                 quotes.append(SourceOddsQuote(
                     source="pinnacle",
                     league=league_code,
@@ -220,6 +225,7 @@ class PinnacleRadarScraper:
                     fair_odds=dv["fair_odds"],
                     vig_pct=dv["vig_pct"],
                     is_live=bool(m.get("isLive")),
+                    match_url=pin_url,
                 ))
             elif mtype == "total" and "over" in by_des and "under" in by_des:
                 o_over = american_to_decimal(by_des["over"]["price"])
@@ -228,6 +234,8 @@ class PinnacleRadarScraper:
                 if pts is None or o_over <= 1.0 or o_under <= 1.0:
                     continue
                 dv = devig_decimal_odds([o_over, o_under], use_power=True)
+                mid = m.get("id")
+                pin_url = f"https://www.pinnacle.com/zh-tw/{sport_name}/matchups/{mid}" if mid else "https://www.pinnacle.com/zh-tw/"
                 quotes.append(SourceOddsQuote(
                     source="pinnacle",
                     league=league_code,
@@ -245,6 +253,7 @@ class PinnacleRadarScraper:
                     fair_odds=dv["fair_odds"],
                     vig_pct=dv["vig_pct"],
                     is_live=bool(m.get("isLive")),
+                    match_url=pin_url,
                 ))
 
         return quotes

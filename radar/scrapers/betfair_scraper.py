@@ -222,6 +222,37 @@ class BetfairRadarScraper:
             if len(parts) == 2:
                 h_name, a_name = parts[0], parts[1]
 
+        # 核心對齊修復：將 names、raw_odds、true_probs、fair_odds 嚴格重排為 [Home, Away] (或 3-way [Home, Draw, Away])
+        # 確保 index 0 永遠對應 home_team，index 1 (或最後) 永遠對應 away_team，徹底杜絕賠率與隊伍反置
+        true_probs = dv["true_probs"]
+        fair_odds = dv["fair_odds"]
+
+        def _name_matches(cand: str, target: str) -> bool:
+            c, t = cand.lower().strip(), target.lower().strip()
+            return c == t or c in t or t in c
+
+        if len(names) == 2:
+            if _name_matches(names[0], a_name) or _name_matches(names[1], h_name):
+                order = [1, 0]
+            else:
+                order = [0, 1]
+            names = [names[i] for i in order]
+            raw_odds = [raw_odds[i] for i in order]
+            true_probs = [true_probs[i] for i in order]
+            fair_odds = [fair_odds[i] for i in order]
+        elif len(names) == 3:
+            draw_idx = next((i for i, n in enumerate(names) if "draw" in n.lower()), 1)
+            other = [i for i in range(3) if i != draw_idx]
+            if _name_matches(names[other[0]], a_name) or _name_matches(names[other[1]], h_name):
+                h_idx, a_idx = other[1], other[0]
+            else:
+                h_idx, a_idx = other[0], other[1]
+            order = [h_idx, draw_idx, a_idx]
+            names = [names[i] for i in order]
+            raw_odds = [raw_odds[i] for i in order]
+            true_probs = [true_probs[i] for i in order]
+            fair_odds = [fair_odds[i] for i in order]
+
         return SourceOddsQuote(
             source="betfair",
             league=league,
@@ -234,8 +265,8 @@ class BetfairRadarScraper:
             market_type="ML",
             outcome_names=names,
             raw_odds=raw_odds,
-            true_probs=dv["true_probs"],
-            fair_odds=dv["fair_odds"],
+            true_probs=true_probs,
+            fair_odds=fair_odds,
             vig_pct=dv["vig_pct"],
             is_live=is_live,
             match_url=f"https://www.betfair.com.au/exchange/plus/market/{market_id}",
