@@ -196,8 +196,19 @@ class BetfairRadarScraper:
                 lays = [lays[i] for i in order]
 
         dv = devig_betfair_back_lay(backs, lays)
+        if not dv.get("is_valid", True):
+            return None
+
+        # 水錢過高 (正常 Betfair 交易所水錢在 -2% ~ +5% 之間，若 > 10% 必為流動性枯竭廢單)
+        if dv["vig_pct"] > 10.0 or dv["vig_pct"] < -5.0:
+            return None
+
         raw_odds = [round(b if b else (l or 0.0), 3) for b, l in zip(backs, lays)]
         if any(o <= 1.0 for o in raw_odds):
+            return None
+
+        # 非滾球賽事若出現極端賠率 (如 <= 1.02)，多為散戶亂掛撿便宜單，直接過濾
+        if not is_live and any(o <= 1.02 for o in raw_odds):
             return None
 
         # 解析 Betfair 事件名稱順序 (通常為 "Away @ Home" 美盤 或 "Home v Away")
@@ -205,17 +216,20 @@ class BetfairRadarScraper:
         if " @ " in ev_name:
             parts = [p.strip() for p in ev_name.split(" @ ", 1)]
             if len(parts) == 2:
-                # runners[0], runners[1] 照名稱對齊
                 a_name, h_name = parts[0], parts[1]
+        elif " v " in ev_name:
+            parts = [p.strip() for p in ev_name.split(" v ", 1)]
+            if len(parts) == 2:
+                h_name, a_name = parts[0], parts[1]
 
         return SourceOddsQuote(
             source="betfair",
             league=league,
             sport=sport,
-            home_team=names[0],
-            away_team=names[-1],
-            home_team_zh=get_zh_display_name(canonicalize_team(names[0], league), names[0]),
-            away_team_zh=get_zh_display_name(canonicalize_team(names[-1], league), names[-1]),
+            home_team=h_name,
+            away_team=a_name,
+            home_team_zh=get_zh_display_name(canonicalize_team(h_name, league), h_name),
+            away_team_zh=get_zh_display_name(canonicalize_team(a_name, league), a_name),
             start_time=open_date,
             market_type="ML",
             outcome_names=names,

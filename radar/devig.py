@@ -107,35 +107,49 @@ def devig_decimal_odds(decimal_odds: List[float], use_power: bool = True) -> Dic
 def devig_betfair_back_lay(
     back_prices: List[Optional[float]],
     lay_prices: List[Optional[float]],
+    max_spread_ratio: float = 1.25,
 ) -> Dict:
     """
     針對 Betfair 交易所計算真實隱含機率：
-    若 Back 與 Lay 皆有效且價差合理，取隱含機率中點再正規化；若僅單邊有效則取 Back 進行去水。
+    嚴格要求各選項皆具備有效雙邊掛單 (Back & Lay) 且價差合理 (lay / back <= max_spread_ratio)。
+    若點差過大 (流動性枯竭之廢單，如 Back 1.01 vs Lay 3.30) 或單邊掛單，判定為無效盤口，
+    避免極端單邊掛單污染共識勝率。水錢超過 10% 或小於 -5% 亦判定為無效。
     """
+    n = len(back_prices)
+    if n != len(lay_prices) or n < 2:
+        return {"is_valid": False, "vig_pct": 100.0, "true_probs": [0.0] * n, "fair_odds": [0.0] * n}
+
     raw_probs: List[float] = []
     for back, lay in zip(back_prices, lay_prices):
-        if back and back > 1.0 and lay and lay > 1.0 and lay >= back and (lay / back) < 1.35:
-            p_back = 1.0 / back
-            p_lay = 1.0 / lay
-            raw_probs.append((p_back + p_lay) / 2.0)
-        elif back and back > 1.0:
-            raw_probs.append(1.0 / back)
-        elif lay and lay > 1.0:
-            raw_probs.append(1.0 / lay)
-        else:
-            raw_probs.append(0.0)
+        if not back or not lay or back <= 1.0 or lay <= 1.0 or lay < back:
+            return {"is_valid": False, "vig_pct": 100.0, "true_probs": [0.0] * n, "fair_odds": [0.0] * n}
+        spread_ratio = lay / back
+        if spread_ratio > max_spread_ratio:
+            # 買賣點差過大，市場未形成緊密共識報價
+            return {"is_valid": False, "vig_pct": 100.0, "true_probs": [0.0] * n, "fair_odds": [0.0] * n}
+        p_back = 1.0 / back
+        p_lay = 1.0 / lay
+        raw_probs.append((p_back + p_lay) / 2.0)
 
-    if any(p <= 0 for p in raw_probs):
-        return devig_multiplicative(raw_probs)
-    return devig_power(raw_probs)
+    overround = sum(raw_probs)
+    vig_pct = (overround - 1.0) * 100.0
+    if vig_pct > 10.0 or vig_pct < -5.0:
+        return {"is_valid": False, "vig_pct": round(vig_pct, 2), "true_probs": [0.0] * n, "fair_odds": [0.0] * n}
+
+    res = devig_power(raw_probs)
+    res["is_valid"] = True
+    return res
 
 
 def compute_weighted_consensus(
     benchmark_probs_by_source: Dict[str, List[float]],
     custom_weights: Optional[Dict[str, float]] = None,
+    outlier_threshold: float = 0.30,
 ) -> Tuple[List[float], List[float], int]:
     """
     計算多參考指標共識真實勝率 (支援局部開盤 1/5 ~ 5/5)
+    具備極端離群值過濾防護 (Outlier Guard)：當有效指標 >= 3 時，若某來源之勝率與中位數相差超過 30%，
+    視為髒數據或異常單邊行情予以剔除，保護共識真勝率不被單一異常指標灌爆。
     :param benchmark_probs_by_source: {"pinnacle": [0.54, 0.46], "polymarket": [0.53, 0.47], ...}
     :return: (consensus_probs, consensus_fair_odds, valid_count)
     """
@@ -144,13 +158,34 @@ def compute_weighted_consensus(
 
     weights = custom_weights or BENCHMARK_WEIGHTS
     n_outcomes = len(next(iter(benchmark_probs_by_source.values())))
+
+    # 初步有效性篩選
+    clean_sources: Dict[str, List[float]] = {}
+    for src, probs in benchmark_probs_by_source.items():
+        if not probs or len(probs) != n_outcomes or any(p <= 0.001 or p >= 0.999 for p in probs):
+            continue
+        clean_sources[src] = probs
+
+    # 離群值防護 (Outlier Guard)：有效指標 >= 3 時比對勝率中位數
+    if len(clean_sources) >= 3 and n_outcomes >= 2:
+        p0_values = [probs[0] for probs in clean_sources.values()]
+        sorted_p0 = sorted(p0_values)
+        mid = len(sorted_p0) // 2
+        median_p0 = (sorted_p0[mid] if len(sorted_p0) % 2 == 1 else (sorted_p0[mid - 1] + sorted_p0[mid]) / 2.0)
+        filtered_sources = {}
+        for src, probs in clean_sources.items():
+            if abs(probs[0] - median_p0) > outlier_threshold:
+                # 剔除極端離群指標
+                continue
+            filtered_sources[src] = probs
+        if filtered_sources:
+            clean_sources = filtered_sources
+
     acc = [0.0] * n_outcomes
     total_w = 0.0
     valid_count = 0
 
-    for src, probs in benchmark_probs_by_source.items():
-        if not probs or len(probs) != n_outcomes or any(p <= 0 or p >= 1.0 for p in probs):
-            continue
+    for src, probs in clean_sources.items():
         w = float(weights.get(src, 1.0))
         for i in range(n_outcomes):
             acc[i] += probs[i] * w

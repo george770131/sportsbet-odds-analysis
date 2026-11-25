@@ -4,6 +4,8 @@
 2 家可投注目標 (台灣運彩 TSL / 澳洲 Sportsbet)
 """
 import hashlib
+import datetime
+import re
 from typing import Dict, List, Any, Optional, Tuple
 import config
 from .models import (
@@ -21,6 +23,87 @@ BENCHMARK_META = {b["key"]: b for b in BENCHMARK_SOURCES}
 TARGET_META = {t["key"]: t for t in TARGET_BOOKS}
 
 
+def parse_start_time_epoch(t_str: str, base_dt: Optional[datetime.datetime] = None) -> Optional[float]:
+    """將各平台多樣開賽時間字串解析為 Unix Epoch Timestamp (秒)"""
+    if not t_str:
+        return None
+    s = str(t_str).strip()
+    now = base_dt or datetime.datetime.now()
+
+    # 1. ISO 8601 (例如 2026-11-26T00:40:00.000Z 或 2026-11-26T00:40:00Z)
+    if "T" in s:
+        try:
+            iso_s = s.replace("Z", "+00:00")
+            dt = datetime.datetime.fromisoformat(iso_s)
+            return dt.timestamp()
+        except Exception:
+            pass
+
+    # 2. "YYYY-MM-DD HH:MM:SS" 或 "YYYY-MM-DD"
+    m_ymd = re.search(r"(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{1,2}))?", s)
+    if m_ymd:
+        y, m, d = int(m_ymd.group(1)), int(m_ymd.group(2)), int(m_ymd.group(3))
+        hh = int(m_ymd.group(4) or 0)
+        mm = int(m_ymd.group(5) or 0)
+        try:
+            return datetime.datetime(y, m, d, hh, mm).timestamp()
+        except Exception:
+            pass
+
+    # 3. 英文月日: "26 Nov", "30 Nov 05:01", "Tomorrow 26 Nov 11:40"
+    m_mon = re.search(r"(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)(?:\s+(\d{1,2}):(\d{1,2}))?", s, re.IGNORECASE)
+    if m_mon:
+        d = int(m_mon.group(1))
+        mon_str = m_mon.group(2).capitalize()
+        months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+        m = months.index(mon_str) + 1
+        hh = int(m_mon.group(3) or 12)
+        mm = int(m_mon.group(4) or 0)
+        y = now.year
+        try:
+            return datetime.datetime(y, m, d, hh, mm).timestamp()
+        except Exception:
+            pass
+
+    # 4. 台灣運彩/常見中文字: "今日 AM 08:00", "明日 AM 08:30"
+    target_date = None
+    if "今日" in s or "今天" in s:
+        target_date = now.date()
+    elif "明日" in s or "明天" in s:
+        target_date = now.date() + datetime.timedelta(days=1)
+    elif "後天" in s:
+        target_date = now.date() + datetime.timedelta(days=2)
+
+    if target_date:
+        m_time = re.search(r"(AM|PM)?\s*(\d{1,2}):(\d{1,2})", s, re.IGNORECASE)
+        if m_time:
+            ampm = (m_time.group(1) or "").upper()
+            hh = int(m_time.group(2))
+            mm = int(m_time.group(3))
+            if ampm == "PM" and hh < 12:
+                hh += 12
+            elif ampm == "AM" and hh == 12:
+                hh = 0
+            return datetime.datetime(target_date.year, target_date.month, target_date.day, hh, mm).timestamp()
+
+    return None
+
+
+def is_start_time_compatible(t1_str: str, t2_str: str, max_diff_hours: float = 18.0) -> Tuple[bool, float]:
+    """
+    檢查兩場賽事開賽時間是否相容。
+    若兩者皆能解析出絕對時間，時間差超過 max_diff_hours 則拒絕對齊 (避免同球隊跨月跨週賽事撞車)。
+    返回 (是否相容, 時間差距秒數)。
+    """
+    e1 = parse_start_time_epoch(t1_str)
+    e2 = parse_start_time_epoch(t2_str)
+    if e1 is not None and e2 is not None:
+        diff_sec = abs(e1 - e2)
+        diff_hours = diff_sec / 3600.0
+        return diff_hours <= max_diff_hours, diff_sec
+    return True, 0.0
+
+
 class OddsComparisonEngine:
     def align_and_evaluate(
         self,
@@ -28,7 +111,7 @@ class OddsComparisonEngine:
         min_benchmarks: int = 1,
     ) -> List[Dict[str, Any]]:
         """
-        將 5 家參考指標與 2 家可投注盤口依「賽事 + 玩法 + 盤口線」精準對齊，
+        將 5 家參考指標與 2 家可投注盤口依「賽事 + 玩法 + 盤口線 + 開賽時間」精準對齊，
         產出 Mobile-First 比價卡片清單。
         """
         now_str = config.get_taiwan_now_str("%Y-%m-%d %H:%M:%S")
@@ -52,6 +135,9 @@ class OddsComparisonEngine:
                         continue
                 if len(rep.raw_odds) != len(tq.raw_odds):
                     continue
+                compat, _ = is_start_time_compatible(rep.start_time, tq.start_time, max_diff_hours=18.0)
+                if not compat:
+                    continue
                 align = match_two_teams(rep.home_team, rep.away_team, tq.home_team, tq.away_team, rep.league)
                 if not align:
                     continue
@@ -69,14 +155,13 @@ class OddsComparisonEngine:
         cards: List[Dict[str, Any]] = []
 
         # 2. 為每個目標群組尋找所有符合的參考指標 (1/5 ~ 5/5)
+        # 候選指標若有多個 (例如同隊伍在不同日期的盤口)，挑選開賽時間最接近 rep 的最佳指標！
         for grp in target_groups:
             rep: SourceOddsQuote = grp["rep"]
             n_legs = len(rep.raw_odds)
-            matched_benchmarks: Dict[str, Tuple[SourceOddsQuote, Tuple[int, int]]] = {}
+            candidates_by_source: Dict[str, List[Tuple[SourceOddsQuote, Tuple[int, int], float]]] = {}
 
             for bq in benchmark_quotes:
-                if bq.source in matched_benchmarks:
-                    continue
                 if bq.market_type != rep.market_type or bq.sport != rep.sport:
                     continue
                 # 嚴格聯賽隔離：不同聯賽絕對不能跨界對齊 (例如 LOL 絕不能與 CS 對齊、NBA 絕不能與 NBL 對齊)
@@ -85,14 +170,34 @@ class OddsComparisonEngine:
                         continue
                 if len(bq.raw_odds) != n_legs:
                     continue
+
+                # 異常水錢過濾 (若指標水錢 > 12% 或 < -8%，代表流動性枯竭或異常報價，不納入候選)
+                if bq.vig_pct > 12.0 or bq.vig_pct < -8.0:
+                    continue
+
+                # 開賽時間窗相容性檢查 (時間差距超過 18 小時直接排除)
+                compat, diff_sec = is_start_time_compatible(rep.start_time, bq.start_time, max_diff_hours=18.0)
+                if not compat:
+                    continue
+
                 align = match_two_teams(rep.home_team, rep.away_team, bq.home_team, bq.away_team, rep.league)
                 if not align:
                     continue
                 if not self._lines_compatible(rep, bq, align):
                     continue
-                matched_benchmarks[bq.source] = (bq, align)
+
+                if bq.source not in candidates_by_source:
+                    candidates_by_source[bq.source] = []
+                candidates_by_source[bq.source].append((bq, align, diff_sec))
+
+            # 每個指標來源挑選開賽時間差距最小的最佳候選者
+            matched_benchmarks: Dict[str, Tuple[SourceOddsQuote, Tuple[int, int]]] = {}
+            for src, cands in candidates_by_source.items():
+                best = min(cands, key=lambda item: item[2])
+                matched_benchmarks[src] = (best[0], best[1])
 
             if len(matched_benchmarks) < min_benchmarks:
+                continue
                 continue
 
             # 3. 依 rep 的順序 [Home, (Draw), Away] 重排各參考指標之真實勝率與明細
